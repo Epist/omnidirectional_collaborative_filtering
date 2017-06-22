@@ -57,10 +57,6 @@ class omni_model(object):
 		pass
 
 
-#Input_Omnidrop needs to take in the vector of observed inputs so that it can always mask the
-#unobserved inputs and differnetially mask only the observed ones
-
-
 """
 Notes:
 The input masking can be accomplished using the basic dropout function in Keras.
