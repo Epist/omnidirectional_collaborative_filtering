@@ -36,7 +36,7 @@ auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causa
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_save_name = "0p5trainSparsity_128bs_3lay_256hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
-
+model_loss = 'mean_squared_error' # "mean_absolute_error"
 
 
 #Set dataset params
@@ -101,7 +101,7 @@ def nMAE(y_true, y_pred):
 
 
 m.compile(optimizer='rmsprop',
-              loss='mean_squared_error',
+              loss=model_loss,
               metrics=['mae', accurate_MAE, nMAE, accurate_RMSE])
 
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
@@ -110,7 +110,7 @@ m.compile(optimizer='rmsprop',
 
 
 min_loss = None
-min_epoch = 0
+best_epoch = 0
 val_history = []
 for i in range(num_epochs):
 	print("Starting epoch ", i+1)
@@ -119,7 +119,7 @@ for i in range(num_epochs):
 	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	
 	#Train model
-	callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+(i+1))]
+	callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+str(i+1))]
 	history = m.fit_generator(train_gen, np.floor(data_reader.train_set_size/batch_size)-1, 
 		callbacks=callbax, validation_data=valid_gen, validation_steps=np.floor(data_reader.val_set_size/batch_size)-1)
 	
@@ -131,22 +131,25 @@ for i in range(num_epochs):
 		min_loss = val_loss
 	elif min_loss>val_loss:
 		min_loss = val_loss
-		min_epoch = i
-	elif i-min_epoch>patience:
+		best_epoch = i
+	elif i-best_epoch>patience:
 		print("Stopping early at epoch ", i+1)
+		print("Best epoch was ", best_epoch+1)
 		print("Val history: ", val_history)
 		break
 	
 
 
 #Testing
+best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1))
+best_m.save(model_save_path+model_save_name+"_bestValidScore") #resave the best one so it can be found later
 
 print("Testing model")
 for i, test_sparsity in enumerate(test_sparsities):
 
 	test_gen = data_reader.data_gen(batch_size, test_sparsity, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 
-	test_results = m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
+	test_results = best_m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
 
 	print("\nTest results with sparsity: ", test_sparsity)
 	print(test_results)
