@@ -109,8 +109,8 @@ m.compile(optimizer='rmsprop',
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto')]
 callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
 
-max_loss = None
-max_epoch = 0
+min_loss = None
+min_epoch = 0
 val_history = []
 for i in range(num_epochs):
 	print("Starting epoch ", i+1)
@@ -126,12 +126,12 @@ for i in range(num_epochs):
 	val_loss_list = history.history[early_stopping_metric]
 	val_loss = val_loss_list[len(val_loss_list)-1]
 	val_history.extend(val_loss_list)
-	if max_loss == None:
-		max_loss = val_loss
-	elif max_loss<val_loss:
-		max_loss = val_loss
-		max_epoch = i
-	elif i-max_epoch>patience:
+	if min_loss == None:
+		min_loss = val_loss
+	elif min_loss>val_loss:
+		min_loss = val_loss
+		min_epoch = i
+	elif i-min_epoch>patience:
 		print("Stopping early at epoch ", i+1)
 		print("Val history: ", val_history)
 		break
