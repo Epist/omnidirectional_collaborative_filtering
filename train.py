@@ -15,17 +15,18 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "amazon_videoGames" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
+dataset = "amazon_moviesAndTv" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
-num_epochs = 10
+num_epochs = 20
 train_sparsity = 0.5 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem
 batch_size = 128 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
 patience = 2
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
-useJSON = False
+useJSON = True
+early_stopping_metric = "val_accurate_RMSE" # "val_loss"
 
 #Model parameters
 numlayers = 3
@@ -69,7 +70,7 @@ modelRunIdentifier = datetime.datetime.now().strftime("%I_%M%p_%B_%d_%Y")
 model_save_name += modelRunIdentifier #Append a unique identifier to the filename
 
 print("Loading data for " + dataset)
-data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, json=useJSON)
+data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON)
 
 data_reader.split_for_validation(val_split) #Create a train-valid-test split
 
@@ -103,13 +104,14 @@ m.compile(optimizer='rmsprop',
               loss='mean_squared_error',
               metrics=['mae', accurate_MAE, nMAE, accurate_RMSE])
 
-callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
-		keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
+#callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
+#		keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto')]
-
+callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
 
 max_loss = None
 max_epoch = 0
+val_history = []
 for i in range(num_epochs):
 	print("Starting epoch ", i+1)
 	#Rebuild the generators for each epoch (the train-valid set assignments stay the same)
@@ -121,8 +123,9 @@ for i in range(num_epochs):
 		callbacks=callbax, validation_data=valid_gen, validation_steps=np.floor(data_reader.val_set_size/batch_size)-1)
 	
 	#Early stopping code
-	val_loss_list = history.history["val_loss"]
+	val_loss_list = history.history[early_stopping_metric]
 	val_loss = val_loss_list[len(val_loss_list)-1]
+	val_history.extend(val_loss_list)
 	if max_loss == None:
 		max_loss = val_loss
 	elif max_loss<val_loss:
@@ -130,7 +133,7 @@ for i in range(num_epochs):
 		max_epoch = i
 	elif i-max_epoch>patience:
 		print("Stopping early at epoch ", i+1)
-		print("Val history: ", val_loss_list)
+		print("Val history: ", val_history)
 		break
 	
 
