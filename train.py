@@ -15,7 +15,7 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "amazon_moviesAndTv" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
+dataset = "movielens" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
 num_epochs = 20
@@ -107,7 +107,7 @@ m.compile(optimizer='rmsprop',
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
 #		keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto')]
-callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
+
 
 min_loss = None
 min_epoch = 0
@@ -119,6 +119,7 @@ for i in range(num_epochs):
 	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	
 	#Train model
+	callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+(i+1))]
 	history = m.fit_generator(train_gen, np.floor(data_reader.train_set_size/batch_size)-1, 
 		callbacks=callbax, validation_data=valid_gen, validation_steps=np.floor(data_reader.val_set_size/batch_size)-1)
 	
