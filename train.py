@@ -15,7 +15,7 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "movielens" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
+dataset = "amazon_videoGames" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
 num_epochs = 20
@@ -141,9 +141,13 @@ for i in range(num_epochs):
 
 
 #Testing
-best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1))
-best_m.save(model_save_path+model_save_name+"_bestValidScore") #resave the best one so it can be found later
-
+try:
+	best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1))
+	best_m.save(model_save_path+model_save_name+"_bestValidScore") #resave the best one so it can be found later
+except:
+	print("FAILED TO LOAD BEST MODEL. TESTING WITH MOST RECENT MODEL.")
+	best_m = m
+	
 print("Testing model")
 for i, test_sparsity in enumerate(test_sparsities):
 
