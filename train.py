@@ -73,7 +73,9 @@ model_save_name += modelRunIdentifier #Append a unique identifier to the filenam
 print("Loading data for " + dataset)
 data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON, eval_mode=eval_mode)
 
-data_reader.split_for_validation(val_split) #Create a train-valid-test split
+if eval_mode == "ablation":
+	data_reader.split_for_validation(val_split) #Create a train-valid-test split
+	#If the eval mode is "fixed_split" then the data is aldready split
 
 #NEED TO IMPLEMENT TRAIN-TEST SPLIT
 
@@ -150,18 +152,28 @@ except:
 	best_m = m
 
 print("Testing model")
-for i, test_sparsity in enumerate(test_sparsities):
 
-	test_gen = data_reader.data_gen(batch_size, test_sparsity, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
+if eval_mode == "ablation":
+	print("\nEvaluating model with ablations\n")
+	for i, test_sparsity in enumerate(test_sparsities):
 
+		test_gen = data_reader.data_gen(batch_size, test_sparsity, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
+
+		test_results = best_m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
+
+		print("\nTest results with sparsity: ", test_sparsity)
+		print(test_results)
+		for i in range(len(test_results)):
+			print(m.metrics_names[i], " : ", test_results[i])
+
+elif eval_mode == "fixed_split":
+	print("\nEvaluating model with fixed split\n")
+	test_gen = data_reader.data_gen(batch_size, None, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	test_results = best_m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
-
-	print("\nTest results with sparsity: ", test_sparsity)
+	print("\nTest results with fixed split")
 	print(test_results)
 	for i in range(len(test_results)):
 		print(m.metrics_names[i], " : ", test_results[i])
-
-
 
 #TODO:
 
