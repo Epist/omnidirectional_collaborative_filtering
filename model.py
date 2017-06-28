@@ -53,9 +53,12 @@ class omni_model(object):
 		self.model = Model(inputs=[dataVars, observed_vars, output_mask], 
 			outputs=[predictions])
 
-	def save_model():
-		pass
+	def save_weights(filename):
+		#weights = self.model.get_weights()
+		self.model.save_weights(filename)
 
+	def load_weights(weights):
+		self.model.set_weights(weights)
 
 """
 Notes:

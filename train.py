@@ -125,7 +125,7 @@ for i in range(num_epochs):
 	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	
 	#Train model
-	callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+str(i+1))]
+	callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+str(i+1))] #Could also set save_weights_only=True
 	history = m.fit_generator(train_gen, np.floor(data_reader.train_set_size/batch_size)-1, 
 		callbacks=callbax, validation_data=valid_gen, validation_steps=np.floor(data_reader.val_set_size/batch_size)-1)
 	
@@ -148,7 +148,8 @@ for i in range(num_epochs):
 
 #Testing
 try:
-	best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1))
+	best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1), 
+		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE})
 	best_m.save(model_save_path+model_save_name+"_bestValidScore") #resave the best one so it can be found later
 except:
 	print("FAILED TO LOAD BEST MODEL. TESTING WITH MOST RECENT MODEL.")

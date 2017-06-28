@@ -10,17 +10,24 @@ import pandas as pd
 import json
 
 
-
+#Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/movielens/ml-20m/ratings.csv"
+full_data_filepath = #"/data1/movielens/ml-20m/ratings.csv"
+output_filepath = "amazon_videoGames " #"data/movielens/"
+schema_type = "amazon" #"movielens"
 
-output_filepath = "data/movielens/"
 
 def split_data(save_users_and_items=False):
 	#Load data file
 	print("Loading CSV")
 	ratings = pd.read_csv(full_data_filepath)
 	num_ratings = len(ratings)
+
+	#Noramlize schema
+	if schema_type == "movielens":
+		ratings.rename(index=str, columns={"movieId": "itemId"})
+	elif schema_type == "amazon":
+		ratings.columns=["userId", "itemId", "rating", "timestamp"]
 
 	#Split it
 	print("Splitting data")
@@ -45,7 +52,7 @@ def split_data(save_users_and_items=False):
 	build_and_save(test_set_ratings, "test", input_set_dict = merge_data_sets(train_dict, valid_dict))
 
 	if save_users_and_items:
-		unique_items = list(ratings["movieId"].unique())
+		unique_items = list(ratings["itemId"].unique())
     
 		unique_users_orig = list(ratings["userId"].unique())
 		unique_users_str = [str(int(x)) for x in unique_users_orig]
@@ -62,12 +69,12 @@ def build_user_item_dict(ratings):
     for i in range(ratings.shape[0]):
         row = ratings.iloc[i]
         user = str(row["userId"])
-        movie = row["movieId"]
+        item = row["itemId"]
         rating = row["rating"]
         if user in user_dict:
-            user_dict[user].append((movie, rating))
+            user_dict[user].append((item, rating))
         else:
-            user_dict[user] = [(movie, rating)]
+            user_dict[user] = [(item, rating)]
     return user_dict
 
 def save_files(user_dicts, trainvalidtest):
