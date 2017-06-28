@@ -27,6 +27,7 @@ shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
 early_stopping_metric = "val_accurate_RMSE" # "val_loss"
+eval_mode = "ablation" # "ablation" or "fixed_split"
 
 #Model parameters
 numlayers = 3
@@ -70,7 +71,7 @@ modelRunIdentifier = datetime.datetime.now().strftime("%I_%M%p_%B_%d_%Y")
 model_save_name += modelRunIdentifier #Append a unique identifier to the filename
 
 print("Loading data for " + dataset)
-data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON)
+data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON, eval_mode=eval_mode)
 
 data_reader.split_for_validation(val_split) #Create a train-valid-test split
 
@@ -147,7 +148,7 @@ try:
 except:
 	print("FAILED TO LOAD BEST MODEL. TESTING WITH MOST RECENT MODEL.")
 	best_m = m
-	
+
 print("Testing model")
 for i, test_sparsity in enumerate(test_sparsities):
 
