@@ -34,25 +34,25 @@ class data_reader(object):
 			for i in range(num_users):
 				self.densevec_to_users[i] = i #make a faux userId mapping
 
-		if eval_mode == "ablation":
+		if self.eval_mode == "ablation":
 			self.user_dict = self.load_data(self.filepath, "ratingsByUser_dict", use_json)
 
-		elif eval_mode == "fixed_split":
+		elif self.eval_mode == "fixed_split":
 			#Load the seperate train, valid, and test files
-			self.user_dicts_train = self.load_data(self.filepath, "ratingsByUser_dict_train", use_json)
+			self.user_dicts_train = self.load_data(self.filepath, "ratingsByUser_dicts_train", use_json)
 			self.user_dict = self.user_dicts_train #Useful for method reuse since the training is handled via ablations
-			self.user_dicts_valid =self.load_data(self.filepath, "ratingsByUser_dict_valid", use_json)
-			self.user_dicts_test = self.load_data(self.filepath, "ratingsByUser_dict_test", use_json)
+			self.user_dicts_valid =self.load_data(self.filepath, "ratingsByUser_dicts_valid", use_json)
+			self.user_dicts_test = self.load_data(self.filepath, "ratingsByUser_dicts_test", use_json)
 
 			#Create the set sizes
-			self.train_set_size = len(self.user_dicts_train.keys)
-			self.val_set_size = len(self.user_dicts_valid[1].keys)
-			self.test_set_size = len(self.user_dicts_test[1].keys)
+			self.train_set_size = len(self.user_dicts_train.keys())
+			self.val_set_size = len(self.user_dicts_valid[1].keys())
+			self.test_set_size = len(self.user_dicts_test[1].keys())
 
 			#Create the set user orders
-			self.train_set = self.user_dicts_train.keys
-			self.val_set = self.user_dicts_valid[1].keys
-			self.test_set = self.user_dicts_test[1].keys
+			self.train_set = self.user_dicts_train.keys()
+			self.val_set = self.user_dicts_valid[1].keys()
+			self.test_set = self.user_dicts_test[1].keys()
 
 		print("Finished loading data")
 
@@ -87,11 +87,11 @@ class data_reader(object):
 
 	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index): 
     	#This is a batch generator and goes in the data_reader file
-    	mask_batch_input = np.zeros([batch_size, self.num_items])
-    	mask_batch_target = np.zeros([batch_size, self.num_items])
+		mask_batch_input = np.zeros([batch_size, self.num_items])
+		mask_batch_target = np.zeros([batch_size, self.num_items])
 
-    	ratings_batch_input = np.zeros([batch_size, self.num_items])
-    	ratings_batch_target = np.zeros([batch_size, self.num_items])
+		ratings_batch_input = np.zeros([batch_size, self.num_items])
+		ratings_batch_target = np.zeros([batch_size, self.num_items])
 
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
 		for i in range(start_index, end_index):
@@ -100,11 +100,14 @@ class data_reader(object):
 			item_rating_list_input = input_dict[user_id_raw]
 			item_rating_list_target = target_dict[user_id_raw]
 
-			for item_rating in item_rating_list_input:
-				item_id = self.items_to_densevec[item_rating[0]]
-				rating = item_rating[1]
-				mask_batch[batch_element, item_id] = 1
-				ratings_batch_input[batch_element, item_id] = rating
+			if item_rating_list_input is not None:
+				for item_rating in item_rating_list_input:
+					item_id = self.items_to_densevec[item_rating[0]]
+					rating = item_rating[1]
+					mask_batch[batch_element, item_id] = 1
+					ratings_batch_input[batch_element, item_id] = rating
+			else:
+				pass #Keep the vector of all zeros
 
 			for item_rating in item_rating_list_target:
 				item_id = self.items_to_densevec[item_rating[0]]
@@ -120,7 +123,7 @@ class data_reader(object):
 		inputs = ratings_batch_input
 		targets = ratings_batch_target
 
-    	return (input_masks, output_masks, inputs, targets)
+		return (input_masks, output_masks, inputs, targets)
 
 	def split_for_validation(self, val_split, seed=None):
 		self.val_split = val_split
@@ -154,7 +157,7 @@ class data_reader(object):
 
 		num_batches = int(np.floor(num_users_set/batch_size))
 		
-		if eval_mode == "ablation" or  train_val_test == "train":
+		if self.eval_mode == "ablation" or  train_val_test == "train":
 			for i in range(num_batches):
 				start_index = i*batch_size
 				end_index = (i+1)*batch_size
@@ -178,7 +181,7 @@ class data_reader(object):
 					zero_mask = np.zeros_like(input_masks)
 					yield([inputs, zero_mask, output_masks], targets)
 
-		elif eval_mode == "fixed_split":
+		elif self.eval_mode == "fixed_split":
 			for i in range(num_batches):
 				start_index = i*batch_size
 				end_index = (i+1)*batch_size

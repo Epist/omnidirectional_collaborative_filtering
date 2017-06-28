@@ -16,7 +16,7 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "amazon_videoGames" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
+dataset = "movielens" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
 num_epochs = 20
@@ -28,7 +28,7 @@ shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
 early_stopping_metric = "val_accurate_RMSE" # "val_loss"
-eval_mode = "ablation" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
+eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
 
 #Model parameters
@@ -151,11 +151,13 @@ try:
 	best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1), 
 		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE})
 	best_m.save(model_save_path+model_save_name+"_bestValidScore") #resave the best one so it can be found later
+	test_epoch = best_epoch+1
 except:
 	print("FAILED TO LOAD BEST MODEL. TESTING WITH MOST RECENT MODEL.")
 	best_m = m
+	test_epoch = i+1
 
-print("Testing model")
+print("Testing model from epoch: ", test_epoch)
 
 if eval_mode == "ablation":
 	print("\nEvaluating model with ablations\n")

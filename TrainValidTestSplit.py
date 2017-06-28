@@ -12,20 +12,21 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = #"/data1/movielens/ml-20m/ratings.csv"
-output_filepath = "amazon_videoGames " #"data/movielens/"
-schema_type = "amazon" #"movielens"
+full_data_filepath = "/data1/movielens/ml-20m/ratings.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
+output_filepath = "data/movielens/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "movielens" #"movielens", "amazon"
 
 
 def split_data(save_users_and_items=False):
 	#Load data file
-	print("Loading CSV")
+	print("Loading CSV from ", full_data_filepath)
 	ratings = pd.read_csv(full_data_filepath)
 	num_ratings = len(ratings)
 
 	#Noramlize schema
 	if schema_type == "movielens":
-		ratings.rename(index=str, columns={"movieId": "itemId"})
+		#ratings.rename(index=str, columns={"movieId": "itemId"})
+		ratings.columns=["userId", "itemId", "rating", "timestamp"]
 	elif schema_type == "amazon":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
 
@@ -68,7 +69,7 @@ def build_user_item_dict(ratings):
     user_dict = {}
     for i in range(ratings.shape[0]):
         row = ratings.iloc[i]
-        user = str(row["userId"])
+        user = str(int(row["userId"]))
         item = row["itemId"]
         rating = row["rating"]
         if user in user_dict:
