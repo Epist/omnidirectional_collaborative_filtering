@@ -1,4 +1,5 @@
-#Training script for the movielens dataset
+#Training script for omnidirectional collaborative filtering models
+
 
 from __future__ import division
 from __future__ import print_function
@@ -27,7 +28,8 @@ shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
 early_stopping_metric = "val_accurate_RMSE" # "val_loss"
-eval_mode = "ablation" # "ablation" or "fixed_split"
+eval_mode = "ablation" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
+#Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
 
 #Model parameters
 numlayers = 3
@@ -86,21 +88,22 @@ m = omni_m.model
 
 def accurate_MAE(y_true, y_pred):
 	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
-	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)
+	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
 	MAE = metrics.mae(y_true, y_pred)
-	return (MAE/num_predictions)*num_items*batch_size
+	return (MAE*num_items*batch_size)/num_predictions #Normalize to count only the ratings that are present.
+	#return (MAE/num_predictions)*num_items*batch_size #Normalize to count only the ratings that are present.
 
 def accurate_RMSE(y_true, y_pred):
 	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
-	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)
+	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
 	MSE = metrics.mse(y_true, y_pred)
-	return tf.sqrt((MSE/num_predictions)*num_items*batch_size)
+	return tf.sqrt((MSE*num_items*batch_size)/num_predictions) #Normalize to count only the ratings that are present. Then take the square root for RMSE.
 
 def nMAE(y_true, y_pred):
 	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
-	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)
+	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
 	MAE = metrics.mae(y_true, y_pred)
-	return ((MAE/num_predictions)*num_items*batch_size)/rating_range
+	return ((MAE*num_items*batch_size)/num_predictions)/rating_range #Normalize to count only the ratings that are present. Then normalize by the rating range.
 
 
 m.compile(optimizer='rmsprop',

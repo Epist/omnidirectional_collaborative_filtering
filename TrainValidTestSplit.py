@@ -94,7 +94,7 @@ def map_inputs_to_targets(input_set_dict, target_dict): #This goes in the TrainV
     input_dict = {}
     for key in target_dict:
         #Try finding the corresponding row/user in the input mat
-        if key in old_input_dict:
+        if key in input_set_dict:
             #If it is present, add it to the corresponding new_input_mat row
             input_dict[key] = input_set_dict[key]
         else:
