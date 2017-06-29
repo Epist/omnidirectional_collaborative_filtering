@@ -73,7 +73,10 @@ class data_reader(object):
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
 		for i in range(start_index, end_index):
 			user_id = user_order[i]
-			user_id_raw = self.densevec_to_users[user_id] #Get the user_id used in the dataset (user_id_raw)
+			if self.eval_mode == "ablation":
+				user_id_raw = self.densevec_to_users[user_id] #Get the user_id used in the dataset (user_id_raw)
+			elif self.eval_mode == "fixed_split":
+				user_id_raw = user_id
 			item_rating_list = self.user_dict[user_id_raw]
 			
 			for item_rating in item_rating_list:
@@ -85,7 +88,7 @@ class data_reader(object):
 
 		return (mask_batch, ratings_batch)
 
-	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index): 
+	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value): 
     	#This is a batch generator and goes in the data_reader file
 		mask_batch_input = np.zeros([batch_size, self.num_items])
 		mask_batch_target = np.zeros([batch_size, self.num_items])
@@ -94,34 +97,39 @@ class data_reader(object):
 		ratings_batch_target = np.zeros([batch_size, self.num_items])
 
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
+		#found = 0
+		#total = 0
 		for i in range(start_index, end_index):
-			user_id = user_order[i]
-			user_id_raw = self.densevec_to_users[user_id] #Get the user_id used in the dataset (user_id_raw)
+			user_id_raw = user_order[i]
 			item_rating_list_input = input_dict[user_id_raw]
 			item_rating_list_target = target_dict[user_id_raw]
+			#total+=1
 
 			if item_rating_list_input is not None:
+				#found+=1
 				for item_rating in item_rating_list_input:
 					item_id = self.items_to_densevec[item_rating[0]]
 					rating = item_rating[1]
-					mask_batch[batch_element, item_id] = 1
+					mask_batch_input[batch_element, item_id] = aux_var_value
 					ratings_batch_input[batch_element, item_id] = rating
 			else:
+
 				pass #Keep the vector of all zeros
 
 			for item_rating in item_rating_list_target:
 				item_id = self.items_to_densevec[item_rating[0]]
 				rating = item_rating[1]
-				mask_batch_target[batch_element, item_id] = 1
+				mask_batch_target[batch_element, item_id] = aux_var_value
 				ratings_batch_target[batch_element, item_id] = rating
 
 			batch_element+=1
+		#print("Batch input density is ", found/total)
 
 		#Aliasing for readability
 		input_masks = mask_batch_input
 		output_masks = mask_batch_target
-		inputs = ratings_batch_input
-		targets = ratings_batch_target
+		inputs = ratings_batch_input * mask_batch_input
+		targets = ratings_batch_target * mask_batch_target
 
 		return (input_masks, output_masks, inputs, targets)
 
@@ -193,7 +201,7 @@ class data_reader(object):
 					input_dict = self.user_dicts_test[0]
 					target_dict = self.user_dicts_test[1]
 
-				(input_masks, output_masks, inputs, targets) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index)
+				(input_masks, output_masks, inputs, targets) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value)
 				yield([inputs, input_masks, output_masks], targets)
 
 		while True: #Makes it an infinite generator so it doesn't error in parallel... (There are other ways to handle this, but the proper way would be to edit Keras... so this will suffice)
