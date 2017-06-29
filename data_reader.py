@@ -128,8 +128,8 @@ class data_reader(object):
 		#Aliasing for readability
 		input_masks = mask_batch_input
 		output_masks = mask_batch_target
-		inputs = ratings_batch_input * mask_batch_input
-		targets = ratings_batch_target * mask_batch_target
+		inputs = ratings_batch_input #* mask_batch_input
+		targets = ratings_batch_target #* mask_batch_target
 
 		return (input_masks, output_masks, inputs, targets)
 
@@ -175,11 +175,13 @@ class data_reader(object):
 
 				random_dropout_array = np.random.choice([0,1], size=ratings.shape, p=[1-data_sparsity, data_sparsity])
 
-				input_masks = random_dropout_array*missing_data_mask*aux_var_value
-				output_masks = ((random_dropout_array-1)*-1)*missing_data_mask*aux_var_value
+				input_masks_raw = random_dropout_array*missing_data_mask
+				output_masks_raw = ((random_dropout_array-1)*-1)*missing_data_mask
+				input_masks = input_masks_raw * aux_var_value
+				output_masks = output_masks_raw * aux_var_value
 
-				inputs = ratings*input_masks
-				targets = ratings*output_masks
+				inputs = ratings*input_masks_raw
+				targets = ratings*output_masks_raw
 
 				if auxilliary_mask_type == "causal": #Use an auxilliary mask input that masks only the variables not present in the dataset
 					yield([inputs, missing_data_mask, output_masks], targets)

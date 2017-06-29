@@ -69,7 +69,10 @@ def build_user_item_dict(ratings):
     user_dict = {}
     for i in range(ratings.shape[0]):
         row = ratings.iloc[i]
-        user = str(int(row["userId"]))
+        if schema_type == "movielens":
+        	user = str(int(row["userId"]))
+        elif schema_type == "amazon":
+        	user = str(row["userId"])
         item = row["itemId"]
         rating = row["rating"]
         if user in user_dict:
@@ -114,7 +117,14 @@ def map_inputs_to_targets(input_set_dict, target_dict): #This goes in the TrainV
 def merge_data_sets(train, val):
     #Merge the dataset dictionaries together so that they can be used as input data for testing
     merged = train.copy()
-    merged.update(val)
+    for key in val:
+    	if key in merged:
+    		merged[key] = merged[key].extend(val[key])
+    	else:
+    		merged[key] = val[key]
+
+    #merged = train.copy()
+    #merged.update(val)
     return merged
 
 split_data()
