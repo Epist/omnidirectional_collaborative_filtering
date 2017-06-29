@@ -19,7 +19,7 @@ import datetime
 dataset = "movielens" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
-num_epochs = 20
+max_epochs = 20
 train_sparsity = 0.5 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 128 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
@@ -118,7 +118,7 @@ m.compile(optimizer='rmsprop',
 min_loss = None
 best_epoch = 0
 val_history = []
-for i in range(num_epochs):
+for i in range(max_epochs):
 	print("Starting epoch ", i+1)
 	#Rebuild the generators for each epoch (the train-valid set assignments stay the same)
 	train_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "train", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
@@ -160,7 +160,7 @@ except:
 print("Testing model from epoch: ", test_epoch)
 
 if eval_mode == "ablation":
-	print("\nEvaluating model with ablations\n")
+	print("\nEvaluating model with ablations")
 	for i, test_sparsity in enumerate(test_sparsities):
 
 		test_gen = data_reader.data_gen(batch_size, test_sparsity, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
@@ -173,10 +173,10 @@ if eval_mode == "ablation":
 			print(m.metrics_names[i], " : ", test_results[i])
 
 elif eval_mode == "fixed_split":
-	print("\nEvaluating model with fixed split\n")
+	print("\nEvaluating model with fixed split")
 	test_gen = data_reader.data_gen(batch_size, None, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	test_results = best_m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
-	print("\nTest results with fixed split")
+	print("Test results with fixed split")
 	print(test_results)
 	for i in range(len(test_results)):
 		print(m.metrics_names[i], " : ", test_results[i])
