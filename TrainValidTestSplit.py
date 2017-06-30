@@ -12,9 +12,9 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/movielens/ml-20m/ratings.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
-output_filepath = "data/movielens/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "movielens" #"movielens", "amazon"
+full_data_filepath = "/data1/amazon/productGraph/categoryFiles/ratings_Books.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
+output_filepath = "data/amazon_books/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "amazon" #"movielens", "amazon"
 
 
 def split_data(save_users_and_items=False):
