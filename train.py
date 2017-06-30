@@ -19,7 +19,7 @@ import datetime
 dataset = "movielens" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
-max_epochs = 20
+max_epochs = 5
 train_sparsity = 0.5 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 128 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
@@ -177,7 +177,7 @@ elif eval_mode == "fixed_split":
 	test_gen = data_reader.data_gen(batch_size, None, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	test_results = best_m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
 	print("Test results with fixed split")
-	print(test_results)
+	#print(test_results)
 	for i in range(len(test_results)):
 		print(m.metrics_names[i], " : ", test_results[i])
 
