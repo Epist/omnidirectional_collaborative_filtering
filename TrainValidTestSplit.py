@@ -12,9 +12,9 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/movielens/ml-20m/ratings.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
-output_filepath = "data/movielens/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "movielens" #"movielens", "amazon"
+full_data_filepath = "/data1/amazon/productGraph/categoryFiles/ratings_Books.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
+output_filepath = "data/amazon_books/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "amazon" #"movielens", "amazon"
 
 
 def split_data(save_users_and_items=False):
@@ -47,6 +47,9 @@ def split_data(save_users_and_items=False):
 	val_set_ratings = ratings.iloc[val_set_ratings_list]
 	test_set_ratings = ratings.iloc[test_set_ratings_list]
 	test_set_inputs_ratings = ratings.iloc[test_set_inputs_list]
+
+	convert_and_save_mml(test_set_inputs_ratings, output_filepath+"train_data_mml.csv") #This is both the train set and the valid set
+	convert_and_save_mml(test_set_ratings, output_filepath+"test_data_mml.csv")
 
 
 	#Construct user-item matrix and save
@@ -129,5 +132,12 @@ def merge_data_sets(train, val):
     #merged = train.copy()
     #merged.update(val)
     return merged
+
+def convert_and_save_mml(ratings, filename):
+	#Convert the rating splits to mymedialite format and save them.
+	# userId::itemId::rating (or can also use a standard csv)
+
+	ratings.to_csv(filename, columns = ["userId", "itemId", "rating"], header=False, index= False)
+
 
 split_data()

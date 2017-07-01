@@ -16,10 +16,10 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "movielens" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
+dataset = "amazon_videoGames" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
-max_epochs = 5
+max_epochs = 30
 train_sparsity = 0.5 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 128 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
