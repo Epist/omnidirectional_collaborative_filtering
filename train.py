@@ -16,10 +16,10 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "amazon_videoGames" # movielens, amazon_books, amazon_moviesAndTv, amazon_videoGames
+dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames
 
 #Training parameters
-max_epochs = 30
+max_epochs = 40
 train_sparsity = 0.5 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 128 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
@@ -27,7 +27,7 @@ patience = 2
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
-early_stopping_metric = "val_accurate_RMSE" # "val_loss"
+early_stopping_metric = "val_accurate_MAE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
 
@@ -39,11 +39,12 @@ auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causa
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_save_name = "0p5trainSparsity_128bs_3lay_256hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
-model_loss = 'mean_squared_error' # "mean_absolute_error"
+model_loss = 'mean_absolute_error' # "mean_absolute_error" 'mean_squared_error'
+optimizer = 'rmsprop' #'rmsprop' 'adam'
 
 
 #Set dataset params
-if dataset == "movielens":
+if dataset == "movielens20m":
 	data_path = "./data/movielens/"#'/data1/movielens/ml-20m'
 	num_items = 26744 #27000
 	num_users = 138493 #138000
@@ -106,7 +107,7 @@ def nMAE(y_true, y_pred):
 	return ((MAE*num_items*batch_size)/num_predictions)/rating_range #Normalize to count only the ratings that are present. Then normalize by the rating range.
 
 
-m.compile(optimizer='rmsprop',
+m.compile(optimizer=optimizer,
               loss=model_loss,
               metrics=['mae', accurate_MAE, nMAE, accurate_RMSE])
 

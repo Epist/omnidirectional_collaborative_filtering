@@ -12,9 +12,10 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/amazon/productGraph/categoryFiles/ratings_Books.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
-output_filepath = "data/amazon_books/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "amazon" #"movielens", "amazon"
+full_data_filepath = "/data1/movielens/ml-20m/ratings.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
+output_filepath = "data/movielens/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "movielens" #"movielens", "amazon"
+build_data_for_omni = False
 
 
 def split_data(save_users_and_items=False):
@@ -48,15 +49,16 @@ def split_data(save_users_and_items=False):
 	test_set_ratings = ratings.iloc[test_set_ratings_list]
 	test_set_inputs_ratings = ratings.iloc[test_set_inputs_list]
 
+	print("Saving splits")
 	convert_and_save_mml(test_set_inputs_ratings, output_filepath+"train_data_mml.csv") #This is both the train set and the valid set
 	convert_and_save_mml(test_set_ratings, output_filepath+"test_data_mml.csv")
 
-
-	#Construct user-item matrix and save
-	train_dict = build_and_save(train_set_ratings, "train")
-	valid_dict = build_and_save(val_set_ratings, "valid", input_set_dict = train_dict)
-	#build_and_save(test_set_ratings, "test", input_set_dict = merge_data_sets(train_dict, valid_dict))
-	build_and_save(test_set_ratings, "test", input_set_dict = build_user_item_dict(test_set_inputs_ratings))
+	if build_data_for_omni:
+		#Construct user-item matrix and save
+		train_dict = build_and_save(train_set_ratings, "train")
+		valid_dict = build_and_save(val_set_ratings, "valid", input_set_dict = train_dict)
+		#build_and_save(test_set_ratings, "test", input_set_dict = merge_data_sets(train_dict, valid_dict))
+		build_and_save(test_set_ratings, "test", input_set_dict = build_user_item_dict(test_set_inputs_ratings))
 
 	if save_users_and_items:
 		unique_items = list(ratings["itemId"].unique())
