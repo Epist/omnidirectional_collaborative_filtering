@@ -17,7 +17,7 @@ from keras.models import Model
 
 #Model
 class omni_model(object):
-	def __init__(self, numlayers, num_hidden_units, input_shape, use_causal_info=True, timestamps=None):
+	def __init__(self, numlayers, num_hidden_units, input_shape, use_causal_info=True, use_timestamps=False):
 		#The timestamps info should not be masked, becasue the timestamps for the targets are required...
 		self.numlayers = numlayers
 		self.num_hidden_units = num_hidden_units
@@ -40,7 +40,8 @@ class omni_model(object):
 		else:
 			x = dataVars
 
-		if timestamps is not None:
+		if use_timestamps:
+			timestamps  = Input(shape=(self.input_shape,))
 			x = concatenate([x, timestamps])
 
 		for layer in range(self.numlayers):
@@ -54,8 +55,12 @@ class omni_model(object):
 		predictions = masked_outputs
 
 		#Also output the output mask for use in masking the targets.
-		self.model = Model(inputs=[dataVars, observed_vars, output_mask], 
-			outputs=[predictions])
+		if use_timestamps:
+			self.model = Model(inputs=[dataVars, observed_vars, output_mask, timestamps], 
+				outputs=[predictions])
+		else:
+			self.model = Model(inputs=[dataVars, observed_vars, output_mask], 
+				outputs=[predictions])
 
 	def save_weights(filename):
 		#weights = self.model.get_weights()

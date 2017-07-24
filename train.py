@@ -17,6 +17,7 @@ import datetime
 
 #Dataset parameters 
 dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames
+useTimestamps = False
 
 #Training parameters
 max_epochs = 40
@@ -74,7 +75,7 @@ modelRunIdentifier = datetime.datetime.now().strftime("%I_%M%p_%B_%d_%Y")
 model_save_name += modelRunIdentifier #Append a unique identifier to the filename
 
 print("Loading data for " + dataset)
-data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON, eval_mode=eval_mode)
+data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON, eval_mode=eval_mode, useTimestamps=useTimestamps)
 
 if eval_mode == "ablation":
 	data_reader.split_for_validation(val_split) #Create a train-valid-test split
@@ -83,7 +84,7 @@ if eval_mode == "ablation":
 #NEED TO IMPLEMENT TRAIN-TEST SPLIT
 
 #Build model
-omni_m = omni_model(numlayers, num_hidden_units, num_items, use_causal_info = use_causal_info)
+omni_m = omni_model(numlayers, num_hidden_units, num_items, use_causal_info = use_causal_info, use_timestamps = useTimestamps)
 m = omni_m.model
 
 
