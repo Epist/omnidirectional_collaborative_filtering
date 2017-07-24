@@ -6,12 +6,13 @@ import json
 import numpy as np
 
 class data_reader(object):
-	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=False, eval_mode = "ablation"):
+	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=False, eval_mode = "ablation", useTimestamps=False):
 		self.num_items = num_items
 		self.num_users = num_users
 		self.filepath = filepath
 		self.nonsequentialusers = nonsequentialusers
 		self.eval_mode = eval_mode
+		self.useTimestamps = useTimestamps
 
 		self.unique_items = self.load_data(self.filepath, "unique_items_list", use_json)
 

@@ -17,7 +17,8 @@ from keras.models import Model
 
 #Model
 class omni_model(object):
-	def __init__(self, numlayers, num_hidden_units, input_shape, use_causal_info=True):
+	def __init__(self, numlayers, num_hidden_units, input_shape, use_causal_info=True, timestamps=None):
+		#The timestamps info should not be masked, becasue the timestamps for the targets are required...
 		self.numlayers = numlayers
 		self.num_hidden_units = num_hidden_units
 		self.input_shape = input_shape
@@ -38,6 +39,9 @@ class omni_model(object):
 			x = concatenate([dataVars, observed_vars]) #Make use of the dummy variable to let the model know which variables were really observed
 		else:
 			x = dataVars
+
+		if timestamps is not None:
+			x = concatenate([x, timestamps])
 
 		for layer in range(self.numlayers):
 			x = Dense(self.num_hidden_units, activation='tanh')(x)
