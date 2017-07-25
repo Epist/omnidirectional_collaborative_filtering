@@ -69,6 +69,9 @@ class data_reader(object):
 
 
 	def build_sparse_batch(self, user_order, batch_size, start_index, end_index):
+
+		#If using timestamps, do not mask the timestamps...
+
 		mask_batch = np.zeros([batch_size, self.num_items])
 		ratings_batch = np.zeros([batch_size, self.num_items])
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
@@ -89,7 +92,10 @@ class data_reader(object):
 
 		return (mask_batch, ratings_batch)
 
-	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value): 
+	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value):
+
+		#If using timestamps, do not mask the timestamps...
+
     	#This is a batch generator and goes in the data_reader file
 		mask_batch_input = np.zeros([batch_size, self.num_items])
 		mask_batch_target = np.zeros([batch_size, self.num_items])
