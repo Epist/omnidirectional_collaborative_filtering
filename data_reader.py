@@ -36,14 +36,25 @@ class data_reader(object):
 				self.densevec_to_users[i] = i #make a faux userId mapping
 
 		if self.eval_mode == "ablation":
-			self.user_dict = self.load_data(self.filepath, "ratingsByUser_dict", use_json)
+			if self.useTimestamps:
+				self.user_dict = self.load_data(self.filepath, "ratingsByUser_dict_timestamps", use_json)
+			else:
+				self.user_dict = self.load_data(self.filepath, "ratingsByUser_dict", use_json)
 
 		elif self.eval_mode == "fixed_split":
-			#Load the seperate train, valid, and test files
-			self.user_dicts_train = self.load_data(self.filepath, "ratingsByUser_dicts_train", use_json)
-			self.user_dict = self.user_dicts_train #Useful for method reuse since the training is handled via ablations
-			self.user_dicts_valid =self.load_data(self.filepath, "ratingsByUser_dicts_valid", use_json)
-			self.user_dicts_test = self.load_data(self.filepath, "ratingsByUser_dicts_test", use_json)
+			if self.useTimestamps:
+				#Load the seperate train, valid, and test files
+				self.user_dicts_train, self.user_dicts_train_timestamps = self.load_data(self.filepath, "ratingsByUser_dicts_withtimestamps_train", use_json)
+				self.user_dict = self.user_dicts_train #Useful for method reuse since the training is handled via ablations
+				self.user_dict_timestamps = self.user_dicts_train_timestamps #Useful for method reuse since the training is handled via ablations
+				self.user_dicts_valid, self.user_dicts_valid_timestamps =self.load_data(self.filepath, "ratingsByUser_dicts_withtimestamps_valid", use_json)
+				self.user_dicts_test, self.user_dicts_test_timestamps = self.load_data(self.filepath, "ratingsByUser_dicts_withtimestamps_test", use_json)
+			else:
+				#Load the seperate train, valid, and test files
+				self.user_dicts_train = self.load_data(self.filepath, "ratingsByUser_dicts_train", use_json)
+				self.user_dict = self.user_dicts_train #Useful for method reuse since the training is handled via ablations
+				self.user_dicts_valid =self.load_data(self.filepath, "ratingsByUser_dicts_valid", use_json)
+				self.user_dicts_test = self.load_data(self.filepath, "ratingsByUser_dicts_test", use_json)
 
 			#Create the set sizes
 			self.train_set_size = len(self.user_dicts_train.keys())
@@ -60,8 +71,8 @@ class data_reader(object):
 
 	def load_data(self, filepath, filename, use_json):
 		if use_json:
-				with open(filepath+filename+".json", "r") as f:
-					file_data = json.load(f)
+			with open(filepath+filename+".json", "r") as f:
+				file_data = json.load(f)
 		else:
 			with open(filepath+filename+".p", "rb") as f:
 				file_data = pickle.load(f)
@@ -74,6 +85,8 @@ class data_reader(object):
 
 		mask_batch = np.zeros([batch_size, self.num_items])
 		ratings_batch = np.zeros([batch_size, self.num_items])
+		if self.useTimestamps:
+			timestamps_batch = np.zeros([batch_size, self.num_items])
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
 		for i in range(start_index, end_index):
 			user_id = user_order[i]
@@ -82,17 +95,28 @@ class data_reader(object):
 			elif self.eval_mode == "fixed_split":
 				user_id_raw = user_id
 			item_rating_list = self.user_dict[user_id_raw]
+			if self.useTimestamps:
+				item_timestamp_list = self.user_dict[user_id_raw]
 			
 			for item_rating in item_rating_list:
 				item_id = self.items_to_densevec[item_rating[0]]###CHANGED
 				rating = item_rating[1]
 				mask_batch[batch_element, item_id] = 1
 				ratings_batch[batch_element, item_id] = rating
+
+			if self.useTimestamps:
+				for item_timestamp in item_timestamp_list:
+					item_id = self.items_to_densevec[item_timestamp[0]]
+					timestamp = item_timestamp[1]
+					timestamps_batch[batch_element, item_id] = timestamp
 			batch_element+=1
 
-		return (mask_batch, ratings_batch)
+		if self.useTimestamps:
+			return (mask_batch, ratings_batch, timestamps_batch)
+		else:
+			return (mask_batch, ratings_batch)
 
-	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value):
+	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=None):
 
 		#If using timestamps, do not mask the timestamps...
 
@@ -103,6 +127,9 @@ class data_reader(object):
 		ratings_batch_input = np.zeros([batch_size, self.num_items])
 		ratings_batch_target = np.zeros([batch_size, self.num_items])
 
+		if self.useTimestamps:
+			timestamps_batch = np.zeros([batch_size, self.num_items])
+
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
 		#found = 0
 		#total = 0
@@ -110,6 +137,8 @@ class data_reader(object):
 			user_id_raw = user_order[i]
 			item_rating_list_input = input_dict[user_id_raw]
 			item_rating_list_target = target_dict[user_id_raw]
+			if self.useTimestamps:
+				item_timestamp_list = timestamps[user_id_raw]
 			#total+=1
 
 			if item_rating_list_input is not None:
@@ -120,7 +149,6 @@ class data_reader(object):
 					mask_batch_input[batch_element, item_id] = aux_var_value
 					ratings_batch_input[batch_element, item_id] = rating
 			else:
-
 				pass #Keep the vector of all zeros
 
 			for item_rating in item_rating_list_target:
@@ -128,6 +156,12 @@ class data_reader(object):
 				rating = item_rating[1]
 				mask_batch_target[batch_element, item_id] = aux_var_value
 				ratings_batch_target[batch_element, item_id] = rating
+
+			if self.useTimestamps:
+				for item_timestamp in item_timestamp_list:
+					item_id = self.items_to_densevec[item_timestamp[0]]
+					timestamp = item_timestamp[1]
+					timestamps_batch[batch_element, item_id] = timestamp
 
 			batch_element+=1
 		#print("Batch input density is ", found/total)
@@ -138,7 +172,10 @@ class data_reader(object):
 		inputs = ratings_batch_input #* mask_batch_input
 		targets = ratings_batch_target #* mask_batch_target
 
-		return (input_masks, output_masks, inputs, targets)
+		if self.useTimestamps:
+			return (input_masks, output_masks, inputs, targets, timestamps_batch)
+		else:
+			return (input_masks, output_masks, inputs, targets)
 
 	def split_for_validation(self, val_split, seed=None):
 		self.val_split = val_split
@@ -177,8 +214,10 @@ class data_reader(object):
 				start_index = i*batch_size
 				end_index = (i+1)*batch_size
 
-
-				(missing_data_mask, ratings) = self.build_sparse_batch(user_order, batch_size, start_index, end_index)
+				if self.useTimestamps:
+					(missing_data_mask, ratings, timestamps) = self.build_sparse_batch(user_order, batch_size, start_index, end_index)
+				else:
+					(missing_data_mask, ratings) = self.build_sparse_batch(user_order, batch_size, start_index, end_index)
 
 				random_dropout_array = np.random.choice([0,1], size=ratings.shape, p=[1-data_sparsity, data_sparsity])
 
@@ -191,12 +230,18 @@ class data_reader(object):
 				targets = ratings*output_masks_raw
 
 				if auxilliary_mask_type == "causal": #Use an auxilliary mask input that masks only the variables not present in the dataset
-					yield([inputs, missing_data_mask, output_masks], targets)
+					mask_to_feed = missing_data_mask
 				elif auxilliary_mask_type == "dropout": #Use an auxilliary mask input that masks both the dropped-out variables and the variables not present in the dataset
-					yield([inputs, input_masks, output_masks], targets)
+					mask_to_feed = input_masks
 				elif auxilliary_mask_type == "zeros": #Use a mask that contains no additional information (this allows the model to include none of this info, but avoid hanging inputs which cause problems in the current version of Keras)
 					zero_mask = np.zeros_like(input_masks)
-					yield([inputs, zero_mask, output_masks], targets)
+					mask_to_feed = zero_mask
+
+				if self.useTimestamps:
+					yield([inputs, mask_to_feed, output_masks, timestamps], targets)
+				else:
+					yield([inputs, mask_to_feed, output_masks], targets)
+
 
 		elif self.eval_mode == "fixed_split":
 			for i in range(num_batches):
@@ -206,12 +251,21 @@ class data_reader(object):
 				if train_val_test == "valid":
 					input_dict = self.user_dicts_valid[0]
 					target_dict = self.user_dicts_valid[1]
+					if self.useTimestamps:
+						timestamps = self.user_dicts_valid_timestamps
 				elif train_val_test == "test":
 					input_dict = self.user_dicts_test[0]
 					target_dict = self.user_dicts_test[1]
+					if self.useTimestamps:
+						timestamps = self.user_dicts_test_timestamps
 
-				(input_masks, output_masks, inputs, targets) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value)
-				yield([inputs, input_masks, output_masks], targets)
+				if self.useTimestamps:
+					(input_masks, output_masks, inputs, targets, timestamps_batch) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=timestamps)
+					yield([inputs, input_masks, output_masks, timestamps_batch], targets)
+				else:
+					(input_masks, output_masks, inputs, targets) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value)
+					yield([inputs, input_masks, output_masks], targets)
 
 		while True: #Makes it an infinite generator so it doesn't error in parallel... (There are other ways to handle this, but the proper way would be to edit Keras... so this will suffice)
+			print("Generator end")
 			yield None

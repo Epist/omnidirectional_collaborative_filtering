@@ -17,7 +17,7 @@ import datetime
 
 #Dataset parameters 
 dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames
-useTimestamps = False
+useTimestamps = True
 
 #Training parameters
 max_epochs = 40
@@ -28,7 +28,7 @@ patience = 2
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
-early_stopping_metric = "val_accurate_MAE" # "val_loss" #"val_accurate_RMSE"
+early_stopping_metric = "val_accurate_RMSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
 
@@ -40,7 +40,7 @@ auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causa
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_save_name = "0p5trainSparsity_128bs_3lay_256hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
-model_loss = 'mean_absolute_error' # "mean_absolute_error" 'mean_squared_error'
+model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
 optimizer = 'rmsprop' #'rmsprop' 'adam'
 
 

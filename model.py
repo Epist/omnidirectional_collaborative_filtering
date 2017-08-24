@@ -50,7 +50,7 @@ class omni_model(object):
 		#output_mask = Lambda(lambda x: (x-1)*-1)(input_mask) #Invert the input mask
 		full_predictions = Dense(self.input_shape, activation='linear')(x)
 
-		masked_outputs = multiply([output_mask,full_predictions]) #Multiply the output of the last layer of dense with the output mask
+		masked_outputs = multiply([output_mask, full_predictions]) #Multiply the output of the last layer of dense with the output mask
 
 		predictions = masked_outputs
 

@@ -15,7 +15,8 @@ trainvalidtest_split = [.8, .1, .1]
 full_data_filepath = "/data1/movielens/ml-20m/ratings.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
 output_filepath = "data/movielens/" #"data/amazon_videoGames/" #"data/movielens/"
 schema_type = "movielens" #"movielens", "amazon"
-build_data_for_omni = False
+build_data_for_omni = True
+include_timestamps = True
 
 
 def split_data(save_users_and_items=False):
@@ -50,15 +51,19 @@ def split_data(save_users_and_items=False):
 	test_set_inputs_ratings = ratings.iloc[test_set_inputs_list]
 
 	print("Saving splits")
-	convert_and_save_mml(test_set_inputs_ratings, output_filepath+"train_data_mml.csv") #This is both the train set and the valid set
-	convert_and_save_mml(test_set_ratings, output_filepath+"test_data_mml.csv")
+	if include_timestamps:
+		convert_and_save_mml(test_set_inputs_ratings, output_filepath+"train_data_mml_withtimestamps.csv") #This is both the train set and the valid set
+		convert_and_save_mml(test_set_ratings, output_filepath+"test_data_mml_withtimestamps.csv")
+	else:
+		convert_and_save_mml(test_set_inputs_ratings, output_filepath+"train_data_mml.csv") #This is both the train set and the valid set
+		convert_and_save_mml(test_set_ratings, output_filepath+"test_data_mml.csv")
 
 	if build_data_for_omni:
 		#Construct user-item matrix and save
 		train_dict = build_and_save(train_set_ratings, "train")
-		valid_dict = build_and_save(val_set_ratings, "valid", input_set_dict = train_dict)
+		valid_dict = build_and_save(val_set_ratings, "valid", input_set_dicts = train_dict)
 		#build_and_save(test_set_ratings, "test", input_set_dict = merge_data_sets(train_dict, valid_dict))
-		build_and_save(test_set_ratings, "test", input_set_dict = build_user_item_dict(test_set_inputs_ratings))
+		build_and_save(test_set_ratings, "test", input_set_dicts = build_user_item_dict(test_set_inputs_ratings))
 
 	if save_users_and_items:
 		unique_items = list(ratings["itemId"].unique())
@@ -74,7 +79,8 @@ def split_data(save_users_and_items=False):
 
 
 def build_user_item_dict(ratings):
-    user_dict = {}
+    user_dict_ratings = {}
+    user_dict_timestamps = {}
     for i in range(ratings.shape[0]):
         row = ratings.iloc[i]
         if schema_type == "movielens":
@@ -83,45 +89,77 @@ def build_user_item_dict(ratings):
         	user = str(row["userId"])
         item = row["itemId"]
         rating = row["rating"]
-        if user in user_dict:
-            user_dict[user].append((item, rating))
+        timestamp = row["timestamp"]
+        if user in user_dict_ratings:
+            user_dict_ratings[user].append((item, rating))
+            user_dict_timestamps[user].append((item, timestamp))
         else:
-            user_dict[user] = [(item, rating)]
-    return user_dict
+            user_dict_ratings[user] = [(item, rating)]
+            user_dict_timestamps[user] = [(item, timestamp)]
+    return (user_dict_ratings, user_dict_timestamps)
 
 def save_files(user_dicts, trainvalidtest):
-    with open(output_filepath + "ratingsByUser_dicts_" + trainvalidtest + ".json" , "w") as f:
-        json.dump( user_dicts, f)
+	if include_timestamps:
+		with open(output_filepath + "ratingsByUser_dicts_withtimestamps_" + trainvalidtest + ".json" , "w") as f:
+			json.dump( user_dicts, f)
+	else:
+		with open(output_filepath + "ratingsByUser_dicts_" + trainvalidtest + ".json" , "w") as f:
+			json.dump( user_dicts, f)
         
-def build_and_save(ratings, trainvalidtest, input_set_dict = None):
+def build_and_save(ratings, trainvalidtest, input_set_dicts = None):
 	print("Building " + trainvalidtest + " set")
-	output_dict = build_user_item_dict(ratings)
+	output_dict_ratings, output_dict_timestamps = build_user_item_dict(ratings)
 	
 	if trainvalidtest=="train":
-		user_dicts = output_dict
+		if include_timestamps:
+			user_dicts = (output_dict_ratings, output_dict_timestamps)
+		else:
+			user_dicts = output_dict_ratings
 	elif trainvalidtest=="valid" or trainvalidtest=="test":
-		input_dict = map_inputs_to_targets(input_set_dict, output_dict)
-		user_dicts = (input_dict, output_dict)
+		input_set_dict_ratings = input_set_dicts[0]
+		input_set_dict_timestamps = input_set_dicts[1]
+		input_dict_ratings = map_inputs_to_targets(input_set_dict_ratings, output_dict_ratings)
+		if include_timestamps:
+			#input_dict_timestamps = map_inputs_to_targets(input_set_dict_timestamps, output_dict_timestamps)
+			user_dicts = ((input_dict_ratings, output_dict_ratings), merge_timestamps(input_set_dict_timestamps, output_dict_timestamps))
+		else:
+			user_dicts = (input_dict_ratings, output_dict_ratings)
     
 	print("Saving " + trainvalidtest + " set")
 	save_files(user_dicts, trainvalidtest)
 
-	return output_dict
+	return (output_dict_ratings, output_dict_timestamps)
 
 def map_inputs_to_targets(input_set_dict, target_dict): #This goes in the TrainValidSplit file
     #Find the inputs that correspond to the targets and construct a paired dataset
     input_dict = {}
-    for key in target_dict:
+    for user in target_dict:
         #Try finding the corresponding row/user in the input mat
-        if key in input_set_dict:
+        if user in input_set_dict:
             #If it is present, add it to the corresponding new_input_mat row
-            input_dict[key] = input_set_dict[key]
+            input_dict[user] = input_set_dict[user]
         else:
             #If it is not present, make the corresponding row into a zero vector
-            input_dict[key] = None #This signals the creation of a zero vector later
+            input_dict[user] = None #This signals the creation of a zero vector later
         
     return input_dict
 
+def merge_timestamps(input_dict_timestamps, output_dict_timestamps):
+	input_keys = input_dict_timestamps.keys()
+	output_keys = output_dict_timestamps.keys()
+	timestamps = {}
+
+	for user in input_keys:
+		timestamps[user] = input_dict_timestamps[user]
+
+	for user in output_keys:
+		if user in timestamps:
+			timestamps[user].extend(output_dict_timestamps[user])
+		else:
+			timestamps[user] = output_dict_timestamps[user]
+
+	return timestamps
+"""
 def merge_data_sets(train, val):
     #Merge the dataset dictionaries together so that they can be used as input data for testing
     merged = train.copy()
@@ -134,12 +172,14 @@ def merge_data_sets(train, val):
     #merged = train.copy()
     #merged.update(val)
     return merged
-
+"""
 def convert_and_save_mml(ratings, filename):
 	#Convert the rating splits to mymedialite format and save them.
 	# userId::itemId::rating (or can also use a standard csv)
-
-	ratings.to_csv(filename, columns = ["userId", "itemId", "rating"], header=False, index= False)
+	if include_timestamps:
+		ratings.to_csv(filename, columns = ["userId", "itemId", "rating", "timestamp"], header=False, index= False)
+	else:
+		ratings.to_csv(filename, columns = ["userId", "itemId", "rating"], header=False, index= False)
 
 
 split_data()
