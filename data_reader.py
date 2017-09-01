@@ -236,11 +236,16 @@ class data_reader(object):
 				elif auxilliary_mask_type == "zeros": #Use a mask that contains no additional information (this allows the model to include none of this info, but avoid hanging inputs which cause problems in the current version of Keras)
 					zero_mask = np.zeros_like(input_masks)
 					mask_to_feed = zero_mask
+				elif auxilliary_mask_type == "both": #Use both the causal and dropout masks
+					mask_to_feed = input_masks #The first mask
 
+				input_list = [inputs, mask_to_feed, output_masks]
 				if self.useTimestamps:
-					yield([inputs, mask_to_feed, output_masks, timestamps], targets)
-				else:
-					yield([inputs, mask_to_feed, output_masks], targets)
+					input_list.append(timestamps)
+				if auxilliary_mask_type=="both":
+					input_list.append(missing_data_mask)
+
+				yield(input_list, targets)
 
 
 		elif self.eval_mode == "fixed_split":
@@ -259,13 +264,18 @@ class data_reader(object):
 					if self.useTimestamps:
 						timestamps = self.user_dicts_test_timestamps
 
+				input_list = [inputs, input_masks, output_masks]
 				if self.useTimestamps:
 					(input_masks, output_masks, inputs, targets, timestamps_batch) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=timestamps)
-					yield([inputs, input_masks, output_masks, timestamps_batch], targets)
+					input_list.append(timestamps_batch)
+
 				else:
 					(input_masks, output_masks, inputs, targets) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value)
-					yield([inputs, input_masks, output_masks], targets)
+				if auxilliary_mask_type=="both":
+					raise(exception("Using both masks not yet implemented for fixed split evaluation process..."))
+					#input_list.append(second_mask)
+				yield(input_list, targets)
 
 		while True: #Makes it an infinite generator so it doesn't error in parallel... (There are other ways to handle this, but the proper way would be to edit Keras... so this will suffice)
-			print("Generator end")
+			#print("Generator end")
 			yield None

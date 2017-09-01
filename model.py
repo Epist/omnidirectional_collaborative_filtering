@@ -17,7 +17,7 @@ from keras.models import Model
 
 #Model
 class omni_model(object):
-	def __init__(self, numlayers, num_hidden_units, input_shape, use_causal_info=True, use_timestamps=False):
+	def __init__(self, numlayers, num_hidden_units, input_shape, use_causal_info=True, use_timestamps=False, use_both_masks=False):
 		#The timestamps info should not be masked, becasue the timestamps for the targets are required...
 		self.numlayers = numlayers
 		self.num_hidden_units = num_hidden_units
@@ -28,6 +28,7 @@ class omni_model(object):
 
 		#A vector representing which variables are actually present in the dataset
 		observed_vars = Input(shape=(self.input_shape,)) #Contains ones and zeros
+
 
 		#observed_vars = Lambda(lambda x: x*aux_var_value)(observed_vars) #Implements the aux_var_value
 
@@ -40,6 +41,10 @@ class omni_model(object):
 		else:
 			x = dataVars
 
+		if use_both_masks:
+			second_mask = Input(shape=(self.input_shape,))
+			x = concatenate([x, second_mask])
+
 		if use_timestamps:
 			timestamps  = Input(shape=(self.input_shape,))
 			x = concatenate([x, timestamps])
@@ -48,19 +53,21 @@ class omni_model(object):
 			x = Dense(self.num_hidden_units, activation='tanh')(x)
 
 		#output_mask = Lambda(lambda x: (x-1)*-1)(input_mask) #Invert the input mask
-		full_predictions = Dense(self.input_shape, activation='linear')(x)
+		full_predictions = Dense(self.input_shape, activation='linear')(x) #Input shape is the same as the output shape
 
 		masked_outputs = multiply([output_mask, full_predictions]) #Multiply the output of the last layer of dense with the output mask
 
 		predictions = masked_outputs
 
 		#Also output the output mask for use in masking the targets.
+		input_list = [dataVars, observed_vars, output_mask]
+		#Add optional additional input variables
 		if use_timestamps:
-			self.model = Model(inputs=[dataVars, observed_vars, output_mask, timestamps], 
-				outputs=[predictions])
-		else:
-			self.model = Model(inputs=[dataVars, observed_vars, output_mask], 
-				outputs=[predictions])
+			input_list.append(timestamps)
+		if use_both_masks:
+			input_list.append(second_mask)
+
+		self.model = Model(inputs=input_list, outputs=[predictions])
 
 	def save_weights(filename):
 		#weights = self.model.get_weights()

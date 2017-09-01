@@ -17,7 +17,7 @@ import datetime
 
 #Dataset parameters 
 dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames
-useTimestamps = True
+useTimestamps = False
 
 #Training parameters
 max_epochs = 40
@@ -36,7 +36,7 @@ eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitti
 numlayers = 3
 num_hidden_units = 256
 use_causal_info = True #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
-auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal" and "zeros"
+auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_save_name = "0p5trainSparsity_128bs_3lay_256hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
@@ -84,7 +84,11 @@ if eval_mode == "ablation":
 #NEED TO IMPLEMENT TRAIN-TEST SPLIT
 
 #Build model
-omni_m = omni_model(numlayers, num_hidden_units, num_items, use_causal_info = use_causal_info, use_timestamps = useTimestamps)
+if auxilliary_mask_type=='both':
+	use_both_masks=True
+else:
+	use_both_masks=False
+omni_m = omni_model(numlayers, num_hidden_units, num_items, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks)
 m = omni_m.model
 
 
