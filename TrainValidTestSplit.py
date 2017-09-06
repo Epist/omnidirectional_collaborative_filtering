@@ -12,12 +12,12 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/amazon/productGraph/categoryFiles/ratings_Books.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv"
-output_filepath = "data/amazon_books/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "amazon" #"movielens", "amazon"
+full_data_filepath = "/data1/beer/beeradvocate-crawler/ba_ratings.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv"
+output_filepath = "data/beeradvocate/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "beeradvocate" #"movielens", "amazon", "beeradvocate"
 build_data_for_omni = True
-include_timestamps = True
-
+include_timestamps = False
+save_users_and_items = True
 
 def split_data(save_users_and_items=False):
 	#Load data file
@@ -30,6 +30,8 @@ def split_data(save_users_and_items=False):
 		#ratings.rename(index=str, columns={"movieId": "itemId"})
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
 	elif schema_type == "amazon":
+		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+	elif schema_type == "beeradvocate":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
 
 	#Split it
@@ -87,6 +89,8 @@ def build_user_item_dict(ratings):
         	user = str(int(row["userId"]))
         elif schema_type == "amazon":
         	user = str(row["userId"])
+	elif schema_type == "beeradvocate":
+		user = str(row["userId"])
         item = row["itemId"]
         rating = row["rating"]
         timestamp = row["timestamp"]
@@ -182,4 +186,4 @@ def convert_and_save_mml(ratings, filename):
 		ratings.to_csv(filename, columns = ["userId", "itemId", "rating"], header=False, index= False)
 
 
-split_data()
+split_data(save_users_and_items)

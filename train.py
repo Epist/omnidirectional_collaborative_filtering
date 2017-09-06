@@ -16,7 +16,7 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames
+dataset = "beeradvocate" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, beeradvocate
 useTimestamps = False
 
 #Training parameters
@@ -63,11 +63,17 @@ if dataset == "amazon_moviesAndTv":
 	num_users = 2088620 #2.206 ratings per user
 	rating_range = 4.0
 	nonsequentialusers = True
-if dataset == "amazon_videoGames":
+if dataset == "amazon_videoGames": #1324753 ratings
 	data_path = "./data/amazon_videoGames/"
 	num_items = 50210 #26.384 ratings per item
 	num_users = 826767 #1.602 ratings per user
 	rating_range = 4.0
+	nonsequentialusers = True
+if dataset == "beeradvocate":
+	data_path = "./data/beeradvocate/" #"/data1/beer/beeradvocate-crawler/ba_ratings.csv"
+	num_items = 35611
+	num_users = 84196
+	rating_range = 4.0 #From 1.0 to 5.0
 	nonsequentialusers = True
 
 model_save_name += "_" + dataset + "_"
