@@ -238,6 +238,8 @@ class data_reader(object):
 					mask_to_feed = zero_mask
 				elif auxilliary_mask_type == "both": #Use both the causal and dropout masks
 					mask_to_feed = input_masks #The first mask
+				else:
+					print("Auxilliary mask type ", auxilliary_mask_type, " doesn't exist")
 
 				input_list = [inputs, mask_to_feed, output_masks]
 				if self.useTimestamps:
@@ -264,13 +266,13 @@ class data_reader(object):
 					if self.useTimestamps:
 						timestamps = self.user_dicts_test_timestamps
 
-				input_list = [inputs, input_masks, output_masks]
 				if self.useTimestamps:
 					(input_masks, output_masks, inputs, targets, timestamps_batch) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=timestamps)
-					input_list.append(timestamps_batch)
-
+					input_list = [inputs, input_masks, output_masks, timestamps_batch]
 				else:
 					(input_masks, output_masks, inputs, targets) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value)
+					input_list = [inputs, input_masks, output_masks]
+					
 				if auxilliary_mask_type=="both":
 					raise(exception("Using both masks not yet implemented for fixed split evaluation process..."))
 					#input_list.append(second_mask)
