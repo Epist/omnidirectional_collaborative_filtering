@@ -75,6 +75,12 @@ if dataset == "beeradvocate":
 	num_users = 84196
 	rating_range = 4.0 #From 1.0 to 5.0
 	nonsequentialusers = True
+if dataset == "yelp":
+	data_path = "./data/yelp/" #"/data1/beer/beeradvocate-crawler/ba_ratings.csv"
+	num_items = 156638
+	num_users = 1183362
+	rating_range = 4.0 #From 1.0 to 5.0
+	nonsequentialusers = True
 
 model_save_name += "_" + dataset + "_"
 modelRunIdentifier = datetime.datetime.now().strftime("%I_%M%p_%B_%d_%Y")

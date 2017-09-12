@@ -12,9 +12,9 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/beer/beeradvocate-crawler/ba_ratings.csv"#'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv"
-output_filepath = "data/beeradvocate/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "beeradvocate" #"movielens", "amazon", "beeradvocate"
+full_data_filepath = "/data1/yelp/yelp_ratings.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv"
+output_filepath = "data/yelp/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "yelp" #"movielens", "amazon", "beeradvocate", "yelp"
 build_data_for_omni = True
 include_timestamps = False
 save_users_and_items = True
@@ -32,6 +32,8 @@ def split_data(save_users_and_items=False):
 	elif schema_type == "amazon":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
 	elif schema_type == "beeradvocate":
+		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+	elif schema_type == "yelp":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
 
 	#Split it
@@ -91,6 +93,9 @@ def build_user_item_dict(ratings):
         	user = str(row["userId"])
 	elif schema_type == "beeradvocate":
 		user = str(row["userId"])
+	elif schema_type == "yelp":
+		user = str(row["userId"])
+
         item = row["itemId"]
         rating = row["rating"]
         timestamp = row["timestamp"]
