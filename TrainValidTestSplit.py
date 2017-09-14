@@ -1,6 +1,10 @@
 #Train-valid-test split
 """
-This file splits a full data file randomly into training, validation, and test data files based on the desired ratio
+This script splits a full data file randomly into training, validation, and test data files based on the desired ratio
+It takes a csv file with one rating per row as an input
+It also constructs and saves quivalent copies of these split data in a format suitable for mymedialite as well as in the format suitable for omnidirectional learning 
+(one user per row with columns representing items and entries representing ratings)
+It is also configured to output data with timestamp information for use in omnidirectional learning.
 """
 
 from __future__ import division
@@ -29,12 +33,17 @@ def split_data(save_users_and_items=False):
 	if schema_type == "movielens":
 		#ratings.rename(index=str, columns={"movieId": "itemId"})
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		cast_user_to_int = True
 	elif schema_type == "amazon":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		cast_user_to_int = False
 	elif schema_type == "beeradvocate":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		cast_user_to_int = False
 	elif schema_type == "yelp":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		cast_user_to_int = False
+
 
 	#Split it
 	print("Splitting data")
@@ -73,7 +82,10 @@ def split_data(save_users_and_items=False):
 		unique_items = list(ratings["itemId"].unique())
     
 		unique_users_orig = list(ratings["userId"].unique())
-		unique_users_str = [str(int(x)) for x in unique_users_orig]
+		if cast_user_to_int:
+			unique_users_str = [str(int(x)) for x in unique_users_orig]
+		else:
+			unique_users_str = [str(x) for x in unique_users_orig]
 
 		with open(output_filepath + "unique_items_list" + ".json" , "w") as f:
 			json.dump( unique_items, f)
