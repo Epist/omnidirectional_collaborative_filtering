@@ -12,9 +12,9 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/yelp/yelp_ratings.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv"
-output_filepath = "data/yelp/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "yelp" #"movielens", "amazon", "beeradvocate", "yelp"
+full_data_filepath = "/data1/amazon/productGraph/categoryFiles/ratings_Clothing_Shoes_and_Jewelry.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv"
+output_filepath = "data/amazon_clothing/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "amazon" #"movielens", "amazon", "beeradvocate", "yelp"
 build_data_for_omni = True
 include_timestamps = False
 save_users_and_items = True
