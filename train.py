@@ -16,7 +16,7 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "amazon_clothing" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, beeradvocate, yelp
+dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp
 useTimestamps = False
 
 #Training parameters
@@ -39,7 +39,7 @@ use_causal_info = True #Toggles whether or not the model incorporates the auxill
 auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
-model_save_name = "0p5trainSparsity_128bs_3lay_256hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
+model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
 optimizer = 'rmsprop' #'rmsprop' 'adam'
 
