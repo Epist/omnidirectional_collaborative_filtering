@@ -16,9 +16,9 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/amazon/productGraph/categoryFiles/ratings_Clothing_Shoes_and_Jewelry.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv"
-output_filepath = "data/amazon_clothing/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "amazon" #"movielens", "amazon", "beeradvocate", "yelp"
+full_data_filepath = "netflix_ratings.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv" "netflix_ratings.csv"
+output_filepath = "data/netflix/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "netflix" #"movielens", "amazon", "beeradvocate", "yelp"
 build_data_for_omni = True
 include_timestamps = False
 save_users_and_items = True
@@ -42,6 +42,9 @@ def split_data(save_users_and_items=False):
 		cast_user_to_int = False
 	elif schema_type == "yelp":
 		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		cast_user_to_int = False
+	elif schema_type == "netflix":
+		ratings.columns=["userId", "itemId", "rating"]
 		cast_user_to_int = False
 
 
@@ -107,10 +110,15 @@ def build_user_item_dict(ratings):
 		user = str(row["userId"])
 	elif schema_type == "yelp":
 		user = str(row["userId"])
+	elif schema_type == "netflix":
+		user = str(row["userId"])
 
         item = row["itemId"]
         rating = row["rating"]
-        timestamp = row["timestamp"]
+	if include_timestamps: #Get the real timestamp
+        	timestamp = row["timestamp"]
+	else: #Get a dummy timestamp to make the rest of the code simpler (It will not be used) This is for datasets without timestamps...
+		timestamp = None
         if user in user_dict_ratings:
             user_dict_ratings[user].append((item, rating))
             user_dict_timestamps[user].append((item, timestamp))

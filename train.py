@@ -16,7 +16,7 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp
+dataset = "netflix" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
 useTimestamps = False
 
 #Training parameters
@@ -82,9 +82,15 @@ if dataset == "beeradvocate":
 	rating_range = 4.0 #From 1.0 to 5.0
 	nonsequentialusers = True
 if dataset == "yelp":
-	data_path = "./data/yelp/" #"/data1/beer/beeradvocate-crawler/ba_ratings.csv"
+	data_path = "./data/yelp/" 
 	num_items = 156638
 	num_users = 1183362
+	rating_range = 4.0 #From 1.0 to 5.0
+	nonsequentialusers = True
+if dataset == "netflix":
+	data_path = "./data/netflix/" 
+	num_items = 17768
+	num_users = 477412
 	rating_range = 4.0 #From 1.0 to 5.0
 	nonsequentialusers = True
 
