@@ -16,21 +16,22 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "netflix" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
+dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
 useTimestamps = False
 
 #Training parameters
 max_epochs = 40
 train_sparsity = 0.5 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
-batch_size = 128 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
-patience = 2
+batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
+patience = 3
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
-early_stopping_metric = "val_accurate_RMSE" # "val_loss" #"val_accurate_RMSE"
+early_stopping_metric = "val_accurate_MSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
+l2_weight_regulatization = None #The parameter value for the l2 weight regularization. Use None for no regularization.
 
 #Model parameters
 numlayers = 3
@@ -41,7 +42,7 @@ aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the de
 model_save_path = "models/"
 model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
-optimizer = 'rmsprop' #'rmsprop' 'adam'
+optimizer = 'rmsprop' #'rmsprop' 'adam' 'adagrad'
 
 
 #Set dataset params
@@ -94,6 +95,13 @@ if dataset == "netflix":
 	rating_range = 4.0 #From 1.0 to 5.0
 	nonsequentialusers = True
 
+#Testing item-centric model...
+if dataset == "movielens20m-item-invert":
+	data_path = "./data/movielens-item-invert/"#'/data1/movielens/ml-20m'
+	num_items = 138493
+	num_users = 26744
+	rating_range = 4.5 #20 for jester, 4.5 for movielens (min rating is 0.5)
+
 model_save_name += "_" + dataset + "_"
 modelRunIdentifier = datetime.datetime.now().strftime("%I_%M%p_%B_%d_%Y")
 model_save_name += modelRunIdentifier #Append a unique identifier to the filename
@@ -129,6 +137,25 @@ def accurate_RMSE(y_true, y_pred):
 	MSE = metrics.mse(y_true, y_pred)
 	return tf.sqrt((MSE*num_items*batch_size)/num_predictions) #Normalize to count only the ratings that are present. Then take the square root for RMSE.
 
+def accurate_RMSE_test(y_true, y_pred):
+	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
+	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
+	scale = tf.cast(tf.size(y_true, out_type=tf.int32), tf.float32)
+	MSE = metrics.mse(y_true, y_pred)
+	return tf.sqrt((MSE*scale)/num_predictions) #Normalize to count only the ratings that are present. Then take the square root for RMSE.
+
+def accurate_RMSE_tensorflow(y_true, y_pred):
+	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
+	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
+	MSE = tf.metrics.mean_squared_error(y_true, y_pred)
+	return tf.sqrt((MSE*num_items*batch_size)/num_predictions) #Normalize to count only the ratings that are present. Then take the square root for RMSE.
+
+def accurate_MSE(y_true, y_pred):
+	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
+	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
+	MSE = metrics.mse(y_true, y_pred)
+	return (MSE*num_items*batch_size)/num_predictions #Normalize to count only the ratings that are present.
+
 def nMAE(y_true, y_pred):
 	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
 	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
@@ -138,7 +165,7 @@ def nMAE(y_true, y_pred):
 
 m.compile(optimizer=optimizer,
               loss=model_loss,
-              metrics=['mae', accurate_MAE, nMAE, accurate_RMSE])
+              metrics=['mae', accurate_MAE, nMAE, accurate_RMSE, accurate_MSE])
 
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
 #		keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
@@ -179,7 +206,7 @@ for i in range(max_epochs):
 #Testing
 try:
 	best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1), 
-		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE})
+		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE, 'accurate_MSE': accurate_MSE})
 	best_m.save(model_save_path+model_save_name+"_bestValidScore") #resave the best one so it can be found later
 	test_epoch = best_epoch+1
 except:

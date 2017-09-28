@@ -6,7 +6,7 @@ import json
 import numpy as np
 
 class data_reader(object):
-	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=False, eval_mode = "ablation", useTimestamps=False):
+	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=True, eval_mode = "ablation", useTimestamps=False):
 		self.num_items = num_items
 		self.num_users = num_users
 		self.filepath = filepath
@@ -133,6 +133,7 @@ class data_reader(object):
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
 		#found = 0
 		#total = 0
+		target_count = 0
 		for i in range(start_index, end_index):
 			user_id_raw = user_order[i]
 			item_rating_list_input = input_dict[user_id_raw]
@@ -156,6 +157,7 @@ class data_reader(object):
 				rating = item_rating[1]
 				mask_batch_target[batch_element, item_id] = aux_var_value
 				ratings_batch_target[batch_element, item_id] = rating
+				target_count += 1
 
 			if self.useTimestamps:
 				for item_timestamp in item_timestamp_list:
@@ -173,9 +175,9 @@ class data_reader(object):
 		targets = ratings_batch_target #* mask_batch_target
 
 		if self.useTimestamps:
-			return (input_masks, output_masks, inputs, targets, timestamps_batch)
+			return (input_masks, output_masks, inputs, targets, timestamps_batch, target_count)
 		else:
-			return (input_masks, output_masks, inputs, targets)
+			return (input_masks, output_masks, inputs, targets, target_count)
 
 	def split_for_validation(self, val_split, seed=None):
 		self.val_split = val_split
@@ -192,7 +194,7 @@ class data_reader(object):
 		self.val_set = random_user_order[self.train_set_size : self.train_set_size+self.val_set_size]
 		self.test_set = random_user_order[self.train_set_size+self.val_set_size : ]
 
-	def data_gen(self, batch_size, data_sparsity, train_val_test = "train", shuffle=True, auxilliary_mask_type = "dropout", aux_var_value = -1):
+	def data_gen(self, batch_size, data_sparsity, train_val_test = "train", shuffle=True, auxilliary_mask_type = "dropout", aux_var_value = -1, return_target_count=False):
 
 		if train_val_test=="train":
 			user_order = self.train_set
@@ -267,16 +269,20 @@ class data_reader(object):
 						timestamps = self.user_dicts_test_timestamps
 
 				if self.useTimestamps:
-					(input_masks, output_masks, inputs, targets, timestamps_batch) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=timestamps)
+					(input_masks, output_masks, inputs, targets, timestamps_batch, target_count) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=timestamps)
 					input_list = [inputs, input_masks, output_masks, timestamps_batch]
 				else:
-					(input_masks, output_masks, inputs, targets) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value)
+					(input_masks, output_masks, inputs, targets, target_count) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value)
 					input_list = [inputs, input_masks, output_masks]
 					
 				if auxilliary_mask_type=="both":
 					raise(exception("Using both masks not yet implemented for fixed split evaluation process..."))
 					#input_list.append(second_mask)
-				yield(input_list, targets)
+
+				if return_target_count:
+					yield(input_list, targets, target_count)
+				else:
+					yield(input_list, targets)
 
 		while True: #Makes it an infinite generator so it doesn't error in parallel... (There are other ways to handle this, but the proper way would be to edit Keras... so this will suffice)
 			#print("Generator end")
