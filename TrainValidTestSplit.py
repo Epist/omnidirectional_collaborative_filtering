@@ -16,35 +16,56 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "netflix_ratings.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv" "netflix_ratings.csv"
-output_filepath = "data/netflix/" #"data/amazon_videoGames/" #"data/movielens/"
-schema_type = "netflix" #"movielens", "amazon", "beeradvocate", "yelp"
+full_data_filepath = "/data1/movielens/ml-20m/ratings.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv" "/data1/netflix/netflix_ratings.csv"
+output_filepath = "data/movielens/" #"data/amazon_videoGames/" #"data/movielens/"
+schema_type = "movielens" #"movielens", "amazon", "beeradvocate", "yelp"
 build_data_for_omni = True
 include_timestamps = False
 save_users_and_items = True
+reverse_user_item_data = True
+
+if reverse_user_item_data:
+	print("Generating reverse user-item data")
+	output_filepath = output_filepath+"reverse_item-user/"
 
 def split_data(save_users_and_items=False):
 	#Load data file
 	print("Loading CSV from ", full_data_filepath)
 	ratings = pd.read_csv(full_data_filepath)
 	num_ratings = len(ratings)
+	
 
 	#Noramlize schema
 	if schema_type == "movielens":
 		#ratings.rename(index=str, columns={"movieId": "itemId"})
-		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		if reverse_user_item_data:
+			ratings.columns=["itemId", "userId", "rating", "timestamp"]
+		else:
+			ratings.columns=["userId", "itemId", "rating", "timestamp"]
 		cast_user_to_int = True
 	elif schema_type == "amazon":
-		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		if reverse_user_item_data:
+			ratings.columns=["itemId", "userId", "rating", "timestamp"]
+		else:
+			ratings.columns=["userId", "itemId", "rating", "timestamp"]
 		cast_user_to_int = False
 	elif schema_type == "beeradvocate":
-		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		if reverse_user_item_data:
+			ratings.columns=["itemId", "userId", "rating", "timestamp"]
+		else:
+			ratings.columns=["userId", "itemId", "rating", "timestamp"]
 		cast_user_to_int = False
 	elif schema_type == "yelp":
-		ratings.columns=["userId", "itemId", "rating", "timestamp"]
+		if reverse_user_item_data:
+			ratings.columns=["itemId", "userId", "rating", "timestamp"]
+		else:
+			ratings.columns=["userId", "itemId", "rating", "timestamp"]
 		cast_user_to_int = False
 	elif schema_type == "netflix":
-		ratings.columns=["userId", "itemId", "rating"]
+		if reverse_user_item_data:
+			ratings.columns=["itemId", "userId", "rating"]
+		else:
+			ratings.columns=["userId", "itemId", "rating"]
 		cast_user_to_int = False
 
 

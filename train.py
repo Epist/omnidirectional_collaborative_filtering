@@ -18,9 +18,10 @@ import datetime
 #Dataset parameters 
 dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
 useTimestamps = False
+reverse_user_item_data = False
 
 #Training parameters
-max_epochs = 40
+max_epochs = 100
 train_sparsity = 0.5 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
@@ -31,18 +32,18 @@ useJSON = True
 early_stopping_metric = "val_accurate_MSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
-l2_weight_regulatization = None #The parameter value for the l2 weight regularization. Use None for no regularization.
+l2_weight_regulatization = 1.0 #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
 
 #Model parameters
 numlayers = 3
-num_hidden_units = 256
+num_hidden_units = 512
 use_causal_info = True #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
 auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
-model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
+model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
-optimizer = 'rmsprop' #'rmsprop' 'adam' 'adagrad'
+optimizer = 'adagrad' #'rmsprop' 'adam' 'adagrad'
 
 
 #Set dataset params
@@ -95,12 +96,11 @@ if dataset == "netflix":
 	rating_range = 4.0 #From 1.0 to 5.0
 	nonsequentialusers = True
 
-#Testing item-centric model...
-if dataset == "movielens20m-item-invert":
-	data_path = "./data/movielens-item-invert/"#'/data1/movielens/ml-20m'
-	num_items = 138493
-	num_users = 26744
-	rating_range = 4.5 #20 for jester, 4.5 for movielens (min rating is 0.5)
+if reverse_user_item_data:
+	data_path = data_path+"reverse_item-user/"
+	num_items_temp = num_items
+	num_items = num_users
+	num_users = num_items_temp
 
 model_save_name += "_" + dataset + "_"
 modelRunIdentifier = datetime.datetime.now().strftime("%I_%M%p_%B_%d_%Y")
