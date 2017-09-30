@@ -6,7 +6,7 @@ import json
 import numpy as np
 
 class data_reader(object):
-	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=True, eval_mode = "ablation", useTimestamps=False):
+	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=True, eval_mode = "ablation", useTimestamps=False, reverse_user_item_data = False):
 		self.num_items = num_items
 		self.num_users = num_users
 		self.filepath = filepath
@@ -35,26 +35,31 @@ class data_reader(object):
 			for i in range(num_users):
 				self.densevec_to_users[i] = i #make a faux userId mapping
 
+		if reverse_user_item_data:
+			fn_base_string = "ratingsByItem"
+		else:
+			fn_base_string = "ratingsByUser"
+
 		if self.eval_mode == "ablation":
 			if self.useTimestamps:
-				self.user_dict = self.load_data(self.filepath, "ratingsByUser_dict_timestamps", use_json)
+				self.user_dict = self.load_data(self.filepath, fn_base_string+"_dict_timestamps", use_json)
 			else:
-				self.user_dict = self.load_data(self.filepath, "ratingsByUser_dict", use_json)
+				self.user_dict = self.load_data(self.filepath, fn_base_string+"_dict", use_json)
 
 		elif self.eval_mode == "fixed_split":
 			if self.useTimestamps:
 				#Load the seperate train, valid, and test files
-				self.user_dicts_train, self.user_dicts_train_timestamps = self.load_data(self.filepath, "ratingsByUser_dicts_withtimestamps_train", use_json)
+				self.user_dicts_train, self.user_dicts_train_timestamps = self.load_data(self.filepath, fn_base_string+"_dicts_withtimestamps_train", use_json)
 				self.user_dict = self.user_dicts_train #Useful for method reuse since the training is handled via ablations
 				self.user_dict_timestamps = self.user_dicts_train_timestamps #Useful for method reuse since the training is handled via ablations
-				self.user_dicts_valid, self.user_dicts_valid_timestamps =self.load_data(self.filepath, "ratingsByUser_dicts_withtimestamps_valid", use_json)
-				self.user_dicts_test, self.user_dicts_test_timestamps = self.load_data(self.filepath, "ratingsByUser_dicts_withtimestamps_test", use_json)
+				self.user_dicts_valid, self.user_dicts_valid_timestamps =self.load_data(self.filepath, fn_base_string+"_dicts_withtimestamps_valid", use_json)
+				self.user_dicts_test, self.user_dicts_test_timestamps = self.load_data(self.filepath, fn_base_string+"_dicts_withtimestamps_test", use_json)
 			else:
 				#Load the seperate train, valid, and test files
-				self.user_dicts_train = self.load_data(self.filepath, "ratingsByUser_dicts_train", use_json)
+				self.user_dicts_train = self.load_data(self.filepath, fn_base_string+"_dicts_train", use_json)
 				self.user_dict = self.user_dicts_train #Useful for method reuse since the training is handled via ablations
-				self.user_dicts_valid =self.load_data(self.filepath, "ratingsByUser_dicts_valid", use_json)
-				self.user_dicts_test = self.load_data(self.filepath, "ratingsByUser_dicts_test", use_json)
+				self.user_dicts_valid =self.load_data(self.filepath, fn_base_string+"_dicts_valid", use_json)
+				self.user_dicts_test = self.load_data(self.filepath, fn_base_string+"_dicts_test", use_json)
 
 			#Create the set sizes
 			self.train_set_size = len(self.user_dicts_train.keys())

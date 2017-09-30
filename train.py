@@ -16,7 +16,7 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
+dataset = "yelp" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
 useTimestamps = False
 reverse_user_item_data = False
 
@@ -32,7 +32,7 @@ useJSON = True
 early_stopping_metric = "val_accurate_MSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
-l2_weight_regulatization = 1.0 #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
+l2_weight_regulatization = 0.01 #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
 
 #Model parameters
 numlayers = 3
@@ -97,17 +97,19 @@ if dataset == "netflix":
 	nonsequentialusers = True
 
 if reverse_user_item_data:
-	data_path = data_path+"reverse_item-user/"
+	#data_path = data_path+"reverse_item-user/"
 	num_items_temp = num_items
 	num_items = num_users
 	num_users = num_items_temp
+	model_save_name += "_itemUserReverse"
 
 model_save_name += "_" + dataset + "_"
 modelRunIdentifier = datetime.datetime.now().strftime("%I_%M%p_%B_%d_%Y")
 model_save_name += modelRunIdentifier #Append a unique identifier to the filename
 
 print("Loading data for " + dataset)
-data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON, eval_mode=eval_mode, useTimestamps=useTimestamps)
+data_reader = data_reader(num_items, num_users, data_path, nonsequentialusers = nonsequentialusers, use_json=useJSON, eval_mode=eval_mode, useTimestamps=useTimestamps
+	reverse_user_item_data = reverse_user_item_data)
 
 if eval_mode == "ablation":
 	data_reader.split_for_validation(val_split) #Create a train-valid-test split
