@@ -14,8 +14,10 @@ class data_reader(object):
 		self.eval_mode = eval_mode
 		self.useTimestamps = useTimestamps
 
-		self.unique_items = self.load_data(self.filepath, "unique_items_list", use_json)
-
+		if reverse_user_item_data:
+			self.unique_items = self.load_data(self.filepath, "unique_users_list", use_json)
+		else:
+			self.unique_items = self.load_data(self.filepath, "unique_items_list", use_json)
 		self.items_to_densevec = {}
 		self.densevec_to_items = {}
 		for i, item in enumerate(self.unique_items):
@@ -23,7 +25,10 @@ class data_reader(object):
 		    self.densevec_to_items[i] = item #Inverse mapping to get original item ID back
 
 		if nonsequentialusers == True:
-			self.unique_users = self.load_data(self.filepath, "unique_users_list", use_json)
+			if reverse_user_item_data:
+				self.unique_users = self.load_data(self.filepath, "unique_items_list", use_json)
+			else:
+				self.unique_users = self.load_data(self.filepath, "unique_users_list", use_json)
 
 			self.users_to_densevec = {}
 			self.densevec_to_users = {}

@@ -18,7 +18,7 @@ from keras.regularizers import l2
 
 #Model
 class omni_model(object):
-	def __init__(self, numlayers, num_hidden_units, input_shape, use_causal_info=True, use_timestamps=False, use_both_masks=False, l2_weight_regulatization=None):
+	def __init__(self, numlayers, num_hidden_units, input_shape, dense_activation = 'tanh', use_causal_info=True, use_timestamps=False, use_both_masks=False, l2_weight_regulatization=None):
 		#The timestamps info should not be masked, becasue the timestamps for the targets are required...
 		self.numlayers = numlayers
 		self.num_hidden_units = num_hidden_units
@@ -52,9 +52,9 @@ class omni_model(object):
 
 		for layer in range(self.numlayers):
 			if l2_weight_regulatization is not None:
-				x = Dense(self.num_hidden_units, activation='tanh', W_regularizer=l2(l2_weight_regulatization))(x)
+				x = Dense(self.num_hidden_units, activation=dense_activation, W_regularizer=l2(l2_weight_regulatization))(x)
 			else:
-				x = Dense(self.num_hidden_units, activation='tanh')(x)
+				x = Dense(self.num_hidden_units, activation=dense_activation)(x)
 
 		#output_mask = Lambda(lambda x: (x-1)*-1)(input_mask) #Invert the input mask
 		full_predictions = Dense(self.input_shape, activation='linear')(x) #Input shape is the same as the output shape
