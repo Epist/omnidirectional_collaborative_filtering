@@ -18,17 +18,17 @@ from keras.regularizers import l2
 
 #Model
 class omni_model(object):
-	def __init__(self, numlayers, num_hidden_units, input_shape, dense_activation = 'tanh', use_causal_info=True, use_timestamps=False, use_both_masks=False, l2_weight_regulatization=None):
+	def __init__(self, numlayers, num_hidden_units, input_shape, dense_activation = 'tanh', use_causal_info=True, use_timestamps=False, use_both_masks=False, l2_weight_regulatization=None, sparse_representation = False):
 		#The timestamps info should not be masked, becasue the timestamps for the targets are required...
 		self.numlayers = numlayers
 		self.num_hidden_units = num_hidden_units
 		self.input_shape = input_shape
 		#self.aux_var_value = aux_var_value
 
-		dataVars = Input(shape=(self.input_shape,)) #A Tensor containing the observed data variables
+		dataVars = Input(shape=(self.input_shape,), sparse=sparse_representation) #A Tensor containing the observed data variables
 
 		#A vector representing which variables are actually present in the dataset
-		observed_vars = Input(shape=(self.input_shape,)) #Contains ones and zeros
+		observed_vars = Input(shape=(self.input_shape,), sparse=sparse_representation) #Contains ones and zeros
 
 
 		#observed_vars = Lambda(lambda x: x*aux_var_value)(observed_vars) #Implements the aux_var_value
@@ -43,11 +43,11 @@ class omni_model(object):
 			x = dataVars
 
 		if use_both_masks:
-			second_mask = Input(shape=(self.input_shape,))
+			second_mask = Input(shape=(self.input_shape,), sparse=sparse_representation)
 			x = concatenate([x, second_mask])
 
 		if use_timestamps:
-			timestamps  = Input(shape=(self.input_shape,))
+			timestamps  = Input(shape=(self.input_shape,), sparse=sparse_representation)
 			x = concatenate([x, timestamps])
 
 		for layer in range(self.numlayers):

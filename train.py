@@ -22,17 +22,17 @@ reverse_user_item_data = False
 
 #Training parameters
 max_epochs = 100
-train_sparsity = 0.4 #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
+train_sparsity = [0.0, 1.0] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
-patience = 3
+patience = 4
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
 early_stopping_metric = "val_accurate_MSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
-l2_weight_regulatization = 0.01 #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
+l2_weight_regulatization = None #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
 
 #Model parameters
 numlayers = 3
@@ -41,11 +41,12 @@ use_causal_info = True #Toggles whether or not the model incorporates the auxill
 auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
-model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul" #"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
 optimizer = 'adagrad' #'rmsprop' 'adam' 'adagrad'
 activation_type = 'tanh' #Try 'selu' or 'elu'
+use_sparse_representation = False
 
+model_save_name = "0p0-1p0trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + optimizer#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 
 #Set dataset params
 if dataset == "movielens20m":
@@ -122,7 +123,7 @@ if auxilliary_mask_type=='both':
 	use_both_masks=True
 else:
 	use_both_masks=False
-omni_m = omni_model(numlayers, num_hidden_units, num_items, dense_activation = activation_type, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks)
+omni_m = omni_model(numlayers, num_hidden_units, num_items, dense_activation = activation_type, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks, l2_weight_regulatization=l2_weight_regulatization, sparse_representation=use_sparse_representation)
 m = omni_m.model
 
 
