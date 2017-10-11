@@ -16,16 +16,16 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "ml1m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
+dataset = "amazon_videoGames" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
 useTimestamps = False
-reverse_user_item_data = True
+reverse_user_item_data = False
 
 #Training parameters
 max_epochs = 100
 train_sparsity = [0.5, 0.5] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
-batch_size = 64 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
-patience = 10
+batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
+patience = 4
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
@@ -34,10 +34,11 @@ eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitti
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
 l2_weight_regulatization = None #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
 pass_through_input_training = False
+dropout_probability = None
 
 #Model parameters
 numlayers = 3
-num_hidden_units = 256
+num_hidden_units = 512
 use_causal_info = True #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
 auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
@@ -47,7 +48,7 @@ optimizer = 'adagrad' #'rmsprop' 'adam' 'adagrad'
 activation_type = 'tanh' #Try 'selu' or 'elu'
 use_sparse_representation = False #Doesn't currently work
 
-model_save_name = "0p1-0p9trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + optimizer#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
+model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + optimizer#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 
 #Set dataset params
 if dataset == "movielens20m":
@@ -130,7 +131,7 @@ if auxilliary_mask_type=='both':
 	use_both_masks=True
 else:
 	use_both_masks=False
-omni_m = omni_model(numlayers, num_hidden_units, num_items, dense_activation = activation_type, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks, l2_weight_regulatization=l2_weight_regulatization, sparse_representation=use_sparse_representation)
+omni_m = omni_model(numlayers, num_hidden_units, num_items, dense_activation = activation_type, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks, l2_weight_regulatization=l2_weight_regulatization, sparse_representation=use_sparse_representation, dropout_probability = dropout_probability)
 m = omni_m.model
 
 
