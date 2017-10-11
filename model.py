@@ -13,7 +13,7 @@ Features:
 """
 from keras.layers import Input, Dense, multiply, Lambda, concatenate
 from keras.models import Model
-from keras.regularizers import l2
+from keras.regularizers import l1, l2
 
 
 #Model

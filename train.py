@@ -16,16 +16,16 @@ import datetime
 #Parameters:
 
 #Dataset parameters 
-dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
+dataset = "ml1m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
 useTimestamps = False
-reverse_user_item_data = False
+reverse_user_item_data = True
 
 #Training parameters
 max_epochs = 100
-train_sparsity = [0.0, 1.0] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
+train_sparsity = [0.5, 0.5] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
-batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
-patience = 4
+batch_size = 64 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
+patience = 10
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
@@ -33,10 +33,11 @@ early_stopping_metric = "val_accurate_MSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
 l2_weight_regulatization = None #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
+pass_through_input_training = False
 
 #Model parameters
 numlayers = 3
-num_hidden_units = 512
+num_hidden_units = 256
 use_causal_info = True #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
 auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
@@ -44,9 +45,9 @@ model_save_path = "models/"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
 optimizer = 'adagrad' #'rmsprop' 'adam' 'adagrad'
 activation_type = 'tanh' #Try 'selu' or 'elu'
-use_sparse_representation = False
+use_sparse_representation = False #Doesn't currently work
 
-model_save_name = "0p0-1p0trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + optimizer#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
+model_save_name = "0p1-0p9trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + optimizer#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 
 #Set dataset params
 if dataset == "movielens20m":
@@ -95,6 +96,12 @@ if dataset == "netflix":
 	data_path = "./data/netflix/" 
 	num_items = 17768
 	num_users = 477412
+	rating_range = 4.0 #From 1.0 to 5.0
+	nonsequentialusers = True
+if dataset == "ml1m":
+	data_path = "./data/ml1m/" 
+	num_items = 3706
+	num_users = 6040
 	rating_range = 4.0 #From 1.0 to 5.0
 	nonsequentialusers = True
 
@@ -181,7 +188,7 @@ val_history = []
 for i in range(max_epochs):
 	print("Starting epoch ", i+1)
 	#Rebuild the generators for each epoch (the train-valid set assignments stay the same)
-	train_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "train", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
+	train_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "train", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, pass_through_input_training = pass_through_input_training)
 	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	
 	#Train model

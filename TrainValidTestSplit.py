@@ -16,13 +16,13 @@ import json
 
 #Parameters
 trainvalidtest_split = [.8, .1, .1]
-full_data_filepath = "/data1/movielens/ml-20m/ratings.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv" "/data1/netflix/netflix_ratings.csv"
-output_filepath = "data/movielens/" #"data/amazon_videoGames/" #"data/movielens/"
+full_data_filepath = "/data1/movielens/ml-1m/ratings.csv" #'/data1/amazon/productGraph/categoryFiles/ratings_Video_Games.csv' #"/data1/movielens/ml-20m/ratings.csv" "/data1/beer/beeradvocate-crawler/ba_ratings.csv" "/data1/yelp/yelp_ratings.csv" "/data1/netflix/netflix_ratings.csv"
+output_filepath = "data/ml1m/" #"data/amazon_videoGames/" #"data/movielens/"
 schema_type = "movielens" #"movielens", "amazon", "beeradvocate", "yelp"
 build_data_for_omni = True
 include_timestamps = False
 save_users_and_items = True
-reverse_user_item_data = True
+reverse_user_item_data = False
 
 if reverse_user_item_data:
 	print("Generating reverse user-item data")
