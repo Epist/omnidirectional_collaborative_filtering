@@ -5,27 +5,28 @@ from __future__ import division
 from __future__ import print_function
 from data_reader import data_reader
 import keras
-from model import omni_model
+from conv_model import omni_model
 #from ops import accurate_MAE, nMAE
 import pandas as pd
 import numpy as np
 from keras import metrics
 import tensorflow as tf
 import datetime
+from keras.optimizers import Adagrad
 
 #Parameters:
 
 #Dataset parameters 
-dataset = "amazon_videoGames" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix
+dataset = "beeradvocate" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix, ml1m
 useTimestamps = False
 reverse_user_item_data = False
 
 #Training parameters
-max_epochs = 100
+max_epochs = 500
 train_sparsity = [0.5, 0.5] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
-patience = 4
+patience = 20
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
@@ -37,18 +38,20 @@ pass_through_input_training = False
 dropout_probability = None
 
 #Model parameters
-numlayers = 3
+numlayers = 1
 num_hidden_units = 512
 use_causal_info = True #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
-auxilliary_mask_type = "dropout" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
+auxilliary_mask_type = "zeros" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
-optimizer = 'adagrad' #'rmsprop' 'adam' 'adagrad'
-activation_type = 'tanh' #Try 'selu' or 'elu'
+optimizer = Adagrad(lr=0.005, epsilon=1e-08, decay=0.0) #'rmsprop' 'adam' 'adagrad'
+activation_type = 'tanh' #Try 'selu' or 'elu' or 'softplus' or 'sigmoid'
 use_sparse_representation = False #Doesn't currently work
 
-model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + optimizer#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
+load_weights_from = None # Model to load weights from for transfer learning experiments
+
+model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + str(optimizer) + "_" + auxilliary_mask_type#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 
 #Set dataset params
 if dataset == "movielens20m":
@@ -131,8 +134,15 @@ if auxilliary_mask_type=='both':
 	use_both_masks=True
 else:
 	use_both_masks=False
-omni_m = omni_model(numlayers, num_hidden_units, num_items, dense_activation = activation_type, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks, l2_weight_regulatization=l2_weight_regulatization, sparse_representation=use_sparse_representation, dropout_probability = dropout_probability)
+omni_m = omni_model(numlayers, num_hidden_units, num_items, batch_size, dense_activation = activation_type, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks, l2_weight_regulatization=l2_weight_regulatization, sparse_representation=use_sparse_representation, dropout_probability = dropout_probability)
 m = omni_m.model
+
+
+if load_weights_from is not None:
+	#Set the weights of the dense layers of the model to weights from a pretrained model (for domain adaptation experiments)
+	donor_model = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1), 
+		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE, 'accurate_MSE': accurate_MSE})
+	omni_m.replace_dense_layer_weights(donor_model)
 
 
 def accurate_MAE(y_true, y_pred):

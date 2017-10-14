@@ -148,8 +148,11 @@ class data_reader(object):
 						#ratings_batch_targets[1].append(rating)
 						mask_batch_targets[batch_element, item_id] = aux_var_value
 						ratings_batch_targets[batch_element, item_id] = rating
+					else:
+						raise(exception("Reciprocal dropout exception!"))
 					missing_data_mask[0].append([batch_element, item_id])
 					missing_data_mask[1].append(aux_var_value)
+					
 
 				else:
 					if random_dropout_split[j] == 1:
@@ -161,7 +164,10 @@ class data_reader(object):
 					elif random_dropout_split[j] == 0:
 						mask_batch_targets[batch_element, item_id] = aux_var_value
 						ratings_batch_targets[batch_element, item_id] = rating
+					else:
+						raise(exception("Reciprocal dropout exception!"))
 					missing_data_mask[batch_element, item_id] = aux_var_value
+					
 
 			if self.useTimestamps:
 				for item_timestamp in item_timestamp_list:
