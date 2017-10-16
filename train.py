@@ -5,7 +5,8 @@ from __future__ import division
 from __future__ import print_function
 from data_reader import data_reader
 import keras
-from conv_model import omni_model
+from model import omni_model
+#from conv_model import omni_model as conv_omni_model
 #from ops import accurate_MAE, nMAE
 import pandas as pd
 import numpy as np
@@ -13,20 +14,22 @@ from keras import metrics
 import tensorflow as tf
 import datetime
 from keras.optimizers import Adagrad
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
 
 #Parameters:
 
 #Dataset parameters 
-dataset = "beeradvocate" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix, ml1m
+dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix, ml1m
 useTimestamps = False
-reverse_user_item_data = False
+reverse_user_item_data = True
 
 #Training parameters
 max_epochs = 500
 train_sparsity = [0.5, 0.5] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
 batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
-patience = 20
+patience = 10
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
@@ -34,24 +37,25 @@ early_stopping_metric = "val_accurate_MSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
 l2_weight_regulatization = None #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
-pass_through_input_training = False
+pass_through_input_training = False #Turns the model into a denosing autoencoder...
 dropout_probability = None
 
 #Model parameters
-numlayers = 1
-num_hidden_units = 512
+numlayers = 3
+num_hidden_units = 2048
 use_causal_info = True #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
 auxilliary_mask_type = "zeros" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
-optimizer = Adagrad(lr=0.005, epsilon=1e-08, decay=0.0) #'rmsprop' 'adam' 'adagrad'
+optimizer = Adagrad(lr=0.0025, epsilon=1e-08, decay=0.0) #'rmsprop' 'adam' 'adagrad'
 activation_type = 'tanh' #Try 'selu' or 'elu' or 'softplus' or 'sigmoid'
 use_sparse_representation = False #Doesn't currently work
 
-load_weights_from = None # Model to load weights from for transfer learning experiments
+load_weights_from = None #"0p5trainSparsity_256bs_3lay_512hu_1.0regul_netflix_10_11AM_October_03_2017_bestValidScore" # Model to load weights from for transfer learning experiments
+start_core_training_epoch = 30
 
-model_save_name = "0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + str(optimizer) + "_" + auxilliary_mask_type#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
+model_save_name = "TRANSFERTESTfromNetflix_0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + str(optimizer) + "_" + auxilliary_mask_type#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 
 #Set dataset params
 if dataset == "movielens20m":
@@ -138,13 +142,6 @@ omni_m = omni_model(numlayers, num_hidden_units, num_items, batch_size, dense_ac
 m = omni_m.model
 
 
-if load_weights_from is not None:
-	#Set the weights of the dense layers of the model to weights from a pretrained model (for domain adaptation experiments)
-	donor_model = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1), 
-		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE, 'accurate_MSE': accurate_MSE})
-	omni_m.replace_dense_layer_weights(donor_model)
-
-
 def accurate_MAE(y_true, y_pred):
 	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
 	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
@@ -184,9 +181,24 @@ def nMAE(y_true, y_pred):
 	return ((MAE*num_items*batch_size)/num_predictions)/rating_range #Normalize to count only the ratings that are present. Then normalize by the rating range.
 
 
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+#config.gpu_options.per_process_gpu_memory_fraction = 0.3
+#config.gpu_options.visible_device_list = "0"
+set_session(tf.Session(config=config))
+
 m.compile(optimizer=optimizer,
               loss=model_loss,
               metrics=['mae', accurate_MAE, nMAE, accurate_RMSE, accurate_MSE])
+
+
+if load_weights_from is not None:
+	print("Loading weights from ", load_weights_from)
+	#Set the weights of the dense layers of the model to weights from a pretrained model (for domain adaptation experiments)
+	donor_model = keras.models.load_model(model_save_path+load_weights_from, 
+		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE, 'accurate_MSE': accurate_MSE})
+	omni_m.replace_dense_layer_weights(donor_model)
 
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
 #		keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
@@ -198,14 +210,24 @@ best_epoch = 0
 val_history = []
 for i in range(max_epochs):
 	print("Starting epoch ", i+1)
+
 	#Rebuild the generators for each epoch (the train-valid set assignments stay the same)
 	train_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "train", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, pass_through_input_training = pass_through_input_training)
 	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
 	
+	if start_core_training_epoch == i and load_weights_from is not None:
+		print("Setting the core weights of the model to trainable")
+		weights = m.get_weights()
+		omni_m.make_trainable()
+		m.compile(optimizer=optimizer,
+              loss=model_loss,
+              metrics=['mae', accurate_MAE, nMAE, accurate_RMSE, accurate_MSE])
+		m.set_weights(weights)
+
 	#Train model
-	callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+str(i+1))] #Could also set save_weights_only=True
+	#callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+str(i+1))] #Could also set save_weights_only=True
 	history = m.fit_generator(train_gen, np.floor(data_reader.train_set_size/batch_size)-1, 
-		callbacks=callbax, validation_data=valid_gen, validation_steps=np.floor(data_reader.val_set_size/batch_size)-1)
+		validation_data=valid_gen, validation_steps=np.floor(data_reader.val_set_size/batch_size)-1) #callbacks=callbax
 	
 	#Early stopping code
 	val_loss_list = history.history[early_stopping_metric]
@@ -216,6 +238,7 @@ for i in range(max_epochs):
 	elif min_loss>val_loss:
 		min_loss = val_loss
 		best_epoch = i
+		m.save(model_save_path+model_save_name+"_epoch_"+str(i+1)+"_bestValidScore") #Only save if it is the best model (will save a lot of time and disk space...)
 	elif i-best_epoch>patience:
 		print("Stopping early at epoch ", i+1)
 		print("Best epoch was ", best_epoch+1)

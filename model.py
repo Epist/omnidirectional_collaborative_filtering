@@ -11,9 +11,11 @@ Features:
 	Auxilliary variable to tell the network whether or not the variable is present
 
 """
+from __future__ import print_function
 from keras.layers import Input, Dense, multiply, Lambda, concatenate, Dropout
 from keras.models import Model
 from keras.regularizers import l1, l2
+
 
 
 #Model
@@ -94,17 +96,28 @@ class omni_model(object):
 		#Only works if the donor and recipient had the same number of dense layers with the same number of hidden units.
 		
 		donor_weights = []
-
+		#print("Donor layers")
 		for layer in donor_model.layers:
+			#print("input shape: ", layer.input_shape[1], "   output shape: ", layer.output_shape[1])
 			if layer.input_shape[1] == self.num_hidden_units and layer.output_shape[1] == self.num_hidden_units:
 				donor_weights.append(layer.get_weights())
 
 		#for i, layer in enumerate(self.dense_layers):
 		#	layer.set_weights(donor_weights[i])
-		for i, layer in enumerate(self.model.layers):
+		#print("New model layers")
+		i = 0
+		for layer in self.model.layers:
+			#print("input shape: ", layer.input_shape[1], "   output shape: ", layer.output_shape[1])
 			if layer.input_shape[1] == self.num_hidden_units and layer.output_shape[1] == self.num_hidden_units:
 				layer.set_weights(donor_weights[i])
+				layer.trainable=False
+				i+=1
 
+	def make_trainable(self):
+		#Need to recompile the model after doing this...
+		for layer in self.model.layers:
+			if layer.input_shape[1] == self.num_hidden_units and layer.output_shape[1] == self.num_hidden_units:
+				layer.trainable=True
 """
 Notes:
 The input masking can be accomplished using the basic dropout function in Keras.
