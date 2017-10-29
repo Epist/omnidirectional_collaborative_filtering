@@ -16,19 +16,21 @@ import datetime
 from keras.optimizers import Adagrad
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
+import h5py
+import copy
 
 #Parameters:
 
 #Dataset parameters 
-dataset = "movielens20m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix, ml1m
+dataset = "ml1m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix, ml1m
 useTimestamps = False
-reverse_user_item_data = True
+reverse_user_item_data = False
 
 #Training parameters
 max_epochs = 500
 train_sparsity = [0.5, 0.5] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
-batch_size = 256 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
+batch_size = 32 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
 patience = 10
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
@@ -36,26 +38,30 @@ useJSON = True
 early_stopping_metric = "val_accurate_MSE" # "val_loss" #"val_accurate_RMSE"
 eval_mode = "fixed_split" # "ablation" or "fixed_split" #Ablation is for splitting the datasets by user and predicting ablated ratings within a user. This is a natural metric because we want to be able to predict unobserved user ratings from observed user ratings
 #Fixed split is for splitting the datasets by rating. This is the standard evaluation procedure in the literature. 
-l2_weight_regulatization = None #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
-pass_through_input_training = False #Turns the model into a denosing autoencoder...
-dropout_probability = None
+l2_weight_regulatization = None #0 #0.01 #The parameter value for the l2 weight regularization. Use None for no regularization.
+pass_through_input_training = True #Turns the model into a denosing autoencoder...
+dropout_probability = 0.2
 
 #Model parameters
-numlayers = 3
-num_hidden_units = 2048
-use_causal_info = True #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
-auxilliary_mask_type = "zeros" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
+numlayers = 2
+num_hidden_units = 512
+use_causal_info = False #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
+auxilliary_mask_type = None#"zeros" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
-optimizer = Adagrad(lr=0.0025, epsilon=1e-08, decay=0.0) #'rmsprop' 'adam' 'adagrad'
-activation_type = 'tanh' #Try 'selu' or 'elu' or 'softplus' or 'sigmoid'
-use_sparse_representation = False #Doesn't currently work
+learning_rate = 0.001
+optimizer = Adagrad(lr=learning_rate, epsilon=1e-08, decay=0.0) #'rmsprop' 'adam' 'adagrad'
+activation_type = 'sigmoid' #Try 'selu' or 'elu' or 'softplus' or 'sigmoid'
+use_sparse_representation = False #Works, but requires a change in keras backend (at least if using Keras (2.0.4) )
 
-load_weights_from = None #"0p5trainSparsity_256bs_3lay_512hu_1.0regul_netflix_10_11AM_October_03_2017_bestValidScore" # Model to load weights from for transfer learning experiments
-start_core_training_epoch = 30
+load_weights_from = "stackedDenoising_NOfinetuning_[0.5, 0.5]trainSparsity_32bs_2lay_512hu_0.005lr_Noneregul_None_sigmoid_ml1m_04_19PM_October_28_2017_bestValidScore" #"0p5trainSparsity_256bs_3lay_512hu_1.0regul_netflix_10_11AM_October_03_2017_bestValidScore" # Model to load weights from for transfer learning experiments
+perform_finetuning = True #Set to False if you want to fix the weights
+#start_core_training_epoch = 1000
+#layers_to_replace = [True, True, False] #Which layers to load weights for and freeze
+#perform_finetuning = False
 
-model_save_name = "TRANSFERTESTfromNetflix_0p5trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(l2_weight_regulatization) + "regul_" + str(optimizer) + "_" + auxilliary_mask_type#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
+model_save_name = "stackedDenoising_WITHfinetuning_" + str(train_sparsity) +"trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(learning_rate) + "lr_" + str(l2_weight_regulatization) + "regul_" + str(auxilliary_mask_type) + "_" + str(activation_type)#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 
 #Set dataset params
 if dataset == "movielens20m":
@@ -198,7 +204,14 @@ if load_weights_from is not None:
 	#Set the weights of the dense layers of the model to weights from a pretrained model (for domain adaptation experiments)
 	donor_model = keras.models.load_model(model_save_path+load_weights_from, 
 		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE, 'accurate_MSE': accurate_MSE})
-	omni_m.replace_dense_layer_weights(donor_model)
+	#omni_m.replace_dense_layer_weights(donor_model, layers_to_replace)
+	if perform_finetuning:
+		#omni_m.replace_dense_layer_weights(donor_model, "all", make_layers_trainable = True)
+		#m.set_weights(donor_model.get_weights())
+		print("Fine tuning")
+		omni_m.manually_load_all_weights(donor_model)
+	else:
+		omni_m.load_and_fix_for_denoising_autoencoders(donor_model)
 
 #callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
 #		keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
@@ -212,17 +225,20 @@ for i in range(max_epochs):
 	print("Starting epoch ", i+1)
 
 	#Rebuild the generators for each epoch (the train-valid set assignments stay the same)
-	train_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "train", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, pass_through_input_training = pass_through_input_training)
-	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
-	
+	train_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "train", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, sparse_representation = use_sparse_representation, pass_through_input_training = pass_through_input_training)
+	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, sparse_representation = use_sparse_representation)
+	"""
 	if start_core_training_epoch == i and load_weights_from is not None:
 		print("Setting the core weights of the model to trainable")
 		weights = m.get_weights()
+		optimizer_state = m.optimizer.get_weights()
 		omni_m.make_trainable()
 		m.compile(optimizer=optimizer,
               loss=model_loss,
               metrics=['mae', accurate_MAE, nMAE, accurate_RMSE, accurate_MSE])
+		m.optimizer.set_weights(optimizer_state)
 		m.set_weights(weights)
+	"""
 
 	#Train model
 	#callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+str(i+1))] #Could also set save_weights_only=True
@@ -239,17 +255,47 @@ for i in range(max_epochs):
 		min_loss = val_loss
 		best_epoch = i
 		m.save(model_save_path+model_save_name+"_epoch_"+str(i+1)+"_bestValidScore") #Only save if it is the best model (will save a lot of time and disk space...)
+		#best_model_weights = copy.deepcopy(m.get_weights())
+		#best_optimizer_state = copy.deepcopy(m.optimizer.get_weights())
 	elif i-best_epoch>patience:
+		"""
+		if perform_finetuning:
+			print("\nPerforming fine tuning from model at epoch ", best_epoch+1, "\n")
+			#m.set_weights(best_model_weights)
+			omni_m.make_trainable()
+			m.compile(optimizer=optimizer,
+              loss=model_loss,
+              metrics=['mae', accurate_MAE, nMAE, accurate_RMSE, accurate_MSE])
+			m.optimizer.set_weights(best_optimizer_state)
+			m.set_weights(best_model_weights)
+			best_epoch = i
+			min_loss = None
+			perform_finetuning = False
+			m.save(model_save_path+model_save_name+"_bestValidScore_beforeFineTuning")
+			
+		else:
+			"""
 		print("Stopping early at epoch ", i+1)
 		print("Best epoch was ", best_epoch+1)
 		print("Val history: ", val_history)
+		#m.set_weights(best_model_weights)
+		#m.save(model_save_path+model_save_name+"_bestValidScore") #Only save if it is the best model (will save a lot of time and disk space...)
+		#best_m = m
 		break
 	
 
 
 #Testing
+best_model_fn = model_save_path+model_save_name+"_epoch_"+str(best_epoch+1)+"_bestValidScore"
+try: #Delete optimizer if it exists
+	print("Deleting optimizer weights for model at ", best_model_fn)
+	f = h5py.File(best_model_fn, 'r+')
+	del f['optimizer_weights']
+	f.close()
+except:
+	print("Could not delete optimizer weights. They probably weren't saved with the model.")
 try:
-	best_m = keras.models.load_model(model_save_path+model_save_name+"_epoch_"+str(best_epoch+1), 
+	best_m = keras.models.load_model(best_model_fn, 
 		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE, 'accurate_MSE': accurate_MSE})
 	best_m.save(model_save_path+model_save_name+"_bestValidScore") #resave the best one so it can be found later
 	test_epoch = best_epoch+1
@@ -257,14 +303,14 @@ except:
 	print("FAILED TO LOAD BEST MODEL. TESTING WITH MOST RECENT MODEL.")
 	best_m = m
 	test_epoch = i+1
-
+test_epoch = best_epoch+1
 print("Testing model from epoch: ", test_epoch)
 
 if eval_mode == "ablation":
 	print("\nEvaluating model with ablations")
 	for i, test_sparsity in enumerate(test_sparsities):
 
-		test_gen = data_reader.data_gen(batch_size, test_sparsity, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
+		test_gen = data_reader.data_gen(batch_size, test_sparsity, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, sparse_representation = use_sparse_representation)
 
 		test_results = best_m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
 
@@ -275,7 +321,7 @@ if eval_mode == "ablation":
 
 elif eval_mode == "fixed_split":
 	print("\nEvaluating model with fixed split")
-	test_gen = data_reader.data_gen(batch_size, None, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value)
+	test_gen = data_reader.data_gen(batch_size, None, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, sparse_representation = use_sparse_representation)
 	test_results = best_m.evaluate_generator(test_gen, np.floor(data_reader.test_set_size/batch_size)-1)
 	print("Test results with fixed split")
 	#print(test_results)
@@ -284,7 +330,7 @@ elif eval_mode == "fixed_split":
 
 
 	print("Testing manually")
-	test_gen_manual = data_reader.data_gen(batch_size, None, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, return_target_count=True)
+	test_gen_manual = data_reader.data_gen(batch_size, None, train_val_test = "test", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, return_target_count=True, sparse_representation = use_sparse_representation)
 	
 	predictions = []
 	targets = []
@@ -314,6 +360,7 @@ elif eval_mode == "fixed_split":
 
 	RMSE = compute_full_RMSE(predictions, targets, ratings_count)
 	print("Manual test RMSE is ", RMSE)
+	print("Load this model at: ", model_save_path+model_save_name+"_bestValidScore")
 
 
 #TODO:

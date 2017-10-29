@@ -5,6 +5,7 @@ import pickle
 import json
 import numpy as np
 from tensorflow import SparseTensor
+import scipy
 
 class data_reader(object):
 	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=True, eval_mode = "ablation", useTimestamps=False, reverse_user_item_data = False):
@@ -94,15 +95,15 @@ class data_reader(object):
 
 		#If using timestamps, do not mask the timestamps...
 		if sparse_representation:
-			mask_batch_inputs = ([], [], [batch_size, self.num_items])#(indices, values, shape)
+			mask_batch_inputs = ([], ([],[]))
 			#mask_batch_targets = ([], [], [batch_size, self.num_items])#(indices, values, shape)
-			ratings_batch_inputs = ([], [], [batch_size, self.num_items])#(indices, values, shape)
+			ratings_batch_inputs = ([], ([],[]))
 			#ratings_batch_targets = ([], [], [batch_size, self.num_items])#(indices, values, shape)
 
-			missing_data_mask = ([], [], [batch_size, self.num_items])#(indices, values, shape)
+			missing_data_mask = ([], ([],[]))
 
 			if self.useTimestamps:
-				timestamps_batch = ([], [], [batch_size, self.num_items])#(indices, values, shape)
+				timestamps_batch = ([], ([],[]))
 		else:
 			mask_batch_inputs = np.zeros([batch_size, self.num_items])
 			ratings_batch_inputs = np.zeros([batch_size, self.num_items])
@@ -134,10 +135,12 @@ class data_reader(object):
 				rating = item_rating[1]
 				if sparse_representation:
 					if random_dropout_split[j] == 1:
-						mask_batch_inputs[0].append([batch_element, item_id])
-						mask_batch_inputs[1].append(aux_var_value)
-						ratings_batch_inputs[0].append([batch_element, item_id])
-						ratings_batch_inputs[1].append(rating)
+						mask_batch_inputs[0].append(aux_var_value)
+						mask_batch_inputs[1][0].append(batch_element)
+						mask_batch_inputs[1][1].append(item_id)
+						ratings_batch_inputs[0].append(rating)
+						ratings_batch_inputs[1][0].append(batch_element)
+						ratings_batch_inputs[1][1].append(item_id)
 						if pass_through_input_training:
 							mask_batch_targets[batch_element, item_id] = aux_var_value
 							ratings_batch_targets[batch_element, item_id] = rating
@@ -150,9 +153,9 @@ class data_reader(object):
 						ratings_batch_targets[batch_element, item_id] = rating
 					else:
 						raise(exception("Reciprocal dropout exception!"))
-					missing_data_mask[0].append([batch_element, item_id])
-					missing_data_mask[1].append(aux_var_value)
-					
+					missing_data_mask[0].append(aux_var_value)
+					missing_data_mask[1][0].append(batch_element)
+					missing_data_mask[1][1].append(item_id)					
 
 				else:
 					if random_dropout_split[j] == 1:
@@ -174,15 +177,24 @@ class data_reader(object):
 					item_id = self.items_to_densevec[item_timestamp[0]]
 					timestamp = item_timestamp[1]
 					if sparse_representation:
-						timestamps_batch[0].append([batch_element, item_id])
-						timestamps_batch[1].append(timestamp)
+						timestamps_batch[0].append(timestamp)
+						timestamps_batch[1][0].append(batch_element)
+						timestamps_batch[1][1].append(item_id)
 					else:
 						timestamps_batch[batch_element, item_id] = timestamp
 			batch_element+=1
 
-		input_masks = mask_batch_inputs
+		if sparse_representation:
+			input_masks = scipy.sparse.coo_matrix(mask_batch_inputs, (batch_size, self.num_items))
+			inputs = scipy.sparse.coo_matrix(ratings_batch_inputs, (batch_size, self.num_items))
+			missing_data_mask = scipy.sparse.coo_matrix(missing_data_mask, (batch_size, self.num_items))
+			if self.useTimestamps:
+				timestamps_batch = scipy.sparse.coo_matrix(timestamps_batch, (batch_size, self.num_items))
+		else:
+			input_masks = mask_batch_inputs
+			inputs = ratings_batch_inputs
+
 		output_masks = mask_batch_targets
-		inputs = ratings_batch_inputs
 		targets = ratings_batch_targets
 
 		if self.useTimestamps:
@@ -190,34 +202,27 @@ class data_reader(object):
 		else:
 			return (input_masks, output_masks, inputs, targets, missing_data_mask)
 
-	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=None, sparse_representation = False):
+	def build_sparse_batch_fixed_split(self, input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, sparse_representation, timestamps=None):
 
 		#If using timestamps, do not mask the timestamps...
     	#This is a batch generator and goes in the data_reader file
 
 		if sparse_representation:
-			mask_batch_input = ([], [], [batch_size, self.num_items])#(indices, values, shape)
-			mask_batch_target = ([], [], [batch_size, self.num_items])#(indices, values, shape)
-
-			ratings_batch_input = ([], [], [batch_size, self.num_items])#(indices, values, shape)
-			ratings_batch_target = ([], [], [batch_size, self.num_items])#(indices, values, shape)
-
-			missing_data_mask = ([], [], [batch_size, self.num_items])#(indices, values, shape)
+			mask_batch_input = ([], ([],[]))
+			ratings_batch_input = ([], ([],[]))
+			missing_data_mask = ([], ([],[]))
 
 			if self.useTimestamps:
-				timestamps_batch = ([], [], [batch_size, self.num_items])
-
+				timestamps_batch = ([], ([],[]))
 		else:
 			mask_batch_input = np.zeros([batch_size, self.num_items])
-			mask_batch_target = np.zeros([batch_size, self.num_items])
-
 			ratings_batch_input = np.zeros([batch_size, self.num_items])
-			ratings_batch_target = np.zeros([batch_size, self.num_items])
-
 			missing_data_mask = np.zeros([batch_size, self.num_items])
 
 			if self.useTimestamps:
 				timestamps_batch = np.zeros([batch_size, self.num_items])
+		ratings_batch_target = np.zeros([batch_size, self.num_items])
+		mask_batch_target = np.zeros([batch_size, self.num_items])
 
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
 		#found = 0
@@ -237,12 +242,15 @@ class data_reader(object):
 					item_id = self.items_to_densevec[item_rating[0]]
 					rating = item_rating[1]
 					if sparse_representation:
-						mask_batch_input[0].append([batch_element, item_id]) #Add the index of the mask entry
-						ratings_batch_input[0].append([batch_element, item_id]) #Add the index of the rating
-						mask_batch_input[1].append(aux_var_value) #Add the value of the mask
-						ratings_batch_input[1].append(rating) #Add the value of the rating
-						missing_data_mask[0].append([batch_element, item_id]) #Add the index of the mask entry
-						missing_data_mask[1].append(aux_var_value) #Add the value of the mask
+						mask_batch_input[0].append(aux_var_value)
+						mask_batch_input[1][0].append(batch_element)
+						mask_batch_input[1][1].append(item_id)
+						ratings_batch_input[0].append(rating)
+						ratings_batch_input[1][0].append(batch_element)
+						ratings_batch_input[1][1].append(item_id)
+						missing_data_mask[0].append(aux_var_value)
+						missing_data_mask[1][0].append(batch_element)
+						missing_data_mask[1][1].append(item_id)
 					else:
 						mask_batch_input[batch_element, item_id] = aux_var_value
 						ratings_batch_input[batch_element, item_id] = rating
@@ -256,8 +264,9 @@ class data_reader(object):
 				mask_batch_target[batch_element, item_id] = aux_var_value
 				ratings_batch_target[batch_element, item_id] = rating
 				if sparse_representation:
-					missing_data_mask[0].append([batch_element, item_id]) #Add the index of the mask entry
-					missing_data_mask[1].append(aux_var_value) #Add the value of the mask
+					missing_data_mask[0].append(aux_var_value)
+					missing_data_mask[1][0].append(batch_element)
+					missing_data_mask[1][1].append(item_id)
 				else:
 					missing_data_mask[batch_element, item_id] = aux_var_value
 
@@ -268,18 +277,25 @@ class data_reader(object):
 					item_id = self.items_to_densevec[item_timestamp[0]]
 					timestamp = item_timestamp[1]
 					if sparse_representation:
-						timestamps_batch[0].append([batch_element, item_id])
-						timestamps_batch[1].append(timestamp)
+						timestamps_batch[0].append(timestamp)
+						timestamps_batch[1][0].append(batch_element)
+						timestamps_batch[1][1].append(item_id)
 					else:
 						timestamps_batch[batch_element, item_id] = timestamp
 
 			batch_element+=1
 		#print("Batch input density is ", found/total)
 
-		#Aliasing for readability
-		input_masks = mask_batch_input
+		if sparse_representation:
+			input_masks = scipy.sparse.coo_matrix(mask_batch_input, (batch_size, self.num_items))
+			inputs = scipy.sparse.coo_matrix(ratings_batch_input, (batch_size, self.num_items))
+			missing_data_mask = scipy.sparse.coo_matrix(missing_data_mask, (batch_size, self.num_items))
+			if self.useTimestamps:
+				timestamps_batch = scipy.sparse.coo_matrix(timestamps_batch, (batch_size, self.num_items))
+		else:		
+			input_masks = mask_batch_input
+			inputs = ratings_batch_input #* mask_batch_input
 		output_masks = mask_batch_target
-		inputs = ratings_batch_input #* mask_batch_input
 		targets = ratings_batch_target #* mask_batch_target
 
 		if self.useTimestamps:
@@ -357,10 +373,14 @@ class data_reader(object):
 					mask_to_feed = zero_mask
 				elif auxilliary_mask_type == "both": #Use both the causal and dropout masks
 					mask_to_feed = input_masks #The first mask
+				elif auxilliary_mask_type is None:
+					pass
 				else:
 					print("Auxilliary mask type ", auxilliary_mask_type, " doesn't exist")
-
-				input_list = [inputs, mask_to_feed, output_masks]
+				if auxilliary_mask_type is None:
+					input_list = [inputs, output_masks]
+				else:
+					input_list = [inputs, mask_to_feed, output_masks]
 				if self.useTimestamps:
 					input_list.append(timestamps)
 				if auxilliary_mask_type=="both":
@@ -386,10 +406,10 @@ class data_reader(object):
 						timestamps = self.user_dicts_test_timestamps
 
 				if self.useTimestamps:
-					(input_masks, output_masks, inputs, targets, missing_data_mask, timestamps_batch, target_count) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, timestamps=timestamps, sparse_representation=sparse_representation)
+					(input_masks, output_masks, inputs, targets, missing_data_mask, timestamps_batch, target_count) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, sparse_representation, timestamps=timestamps)
 					#input_list = [inputs, input_masks, output_masks, timestamps_batch]
 				else:
-					(input_masks, output_masks, inputs, targets, missing_data_mask, target_count) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, sparse_representation=sparse_representation)
+					(input_masks, output_masks, inputs, targets, missing_data_mask, target_count) = self.build_sparse_batch_fixed_split(input_dict, target_dict, user_order, batch_size, start_index, end_index, aux_var_value, sparse_representation)
 					#input_list = [inputs, input_masks, output_masks]
 				
 				if auxilliary_mask_type =="causal":
@@ -402,10 +422,15 @@ class data_reader(object):
 				elif auxilliary_mask_type =="both":
 					mask_to_feed = input_masks #The first mask
 					#input_list.append(second_mask)
+				elif auxilliary_mask_type is None:
+					pass
 				else:
 					print("Auxilliary mask type ", auxilliary_mask_type, " doesn't exist")
-
-				input_list = [inputs, mask_to_feed, output_masks]
+				
+				if auxilliary_mask_type is None:
+					input_list = [inputs, output_masks]
+				else:
+					input_list = [inputs, mask_to_feed, output_masks]
 				if self.useTimestamps:
 					input_list.append(timestamps)
 				if auxilliary_mask_type=="both":
