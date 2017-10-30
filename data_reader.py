@@ -6,6 +6,7 @@ import json
 import numpy as np
 from tensorflow import SparseTensor
 import scipy
+import scipy.sparse
 
 class data_reader(object):
 	def __init__(self, num_items, num_users, filepath, nonsequentialusers=False, use_json=True, eval_mode = "ablation", useTimestamps=False, reverse_user_item_data = False):

@@ -13,7 +13,7 @@ import numpy as np
 from keras import metrics
 import tensorflow as tf
 import datetime
-from keras.optimizers import Adagrad
+from keras.optimizers import Adagrad, RMSprop
 import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
 import h5py
@@ -24,14 +24,14 @@ import copy
 #Dataset parameters 
 dataset = "ml1m" # movielens20m, amazon_books, amazon_moviesAndTv, amazon_videoGames, amazon_clothing, beeradvocate, yelp, netflix, ml1m
 useTimestamps = False
-reverse_user_item_data = False
+reverse_user_item_data = True
 
 #Training parameters
 max_epochs = 500
-train_sparsity = [0.5, 0.5] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
+train_sparsity = [1.0, 1.0] #Probability of a data point being treated as an input (lower numbers mean a sparser recommendation problem)
 test_sparsities = [0.0, 0.1, 0.4, 0.5, 0.6, 0.9] #0.0 Corresponds to the cold start problem. This is not used when eval_mode = "fixed_split"
-batch_size = 32 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
-patience = 10
+batch_size = 128 #Bigger batches appear to be very important in getting this to work well. I hypothesize that this is because the optimizer is not fighting itself when optimizing for different things across trials
+patience = 0
 shuffle_data_every_epoch = True
 val_split = [0.8, 0.1, 0.1]
 useJSON = True
@@ -43,20 +43,21 @@ pass_through_input_training = True #Turns the model into a denosing autoencoder.
 dropout_probability = 0.2
 
 #Model parameters
-numlayers = 2
+numlayers = 1
 num_hidden_units = 512
 use_causal_info = False #Toggles whether or not the model incorporates the auxilliary info. Setting this to off and setting the auxilliary_mask_type to "zeros" have the same computational effect, however this one runs faster but causes some errors with model saving. It is recommended to keep this set to True
 auxilliary_mask_type = None#"zeros" #Default is "dropout". Other options are "causal", "zeros", and "both" which uses both the causal and the dropout masks.
 aux_var_value = -1 #-1 is Zhouwen's suggestion. Seems to work better than the default of 1.
 model_save_path = "models/"
 model_loss = 'mean_squared_error' # "mean_absolute_error" 'mean_squared_error'
-learning_rate = 0.001
+learning_rate = 0.005
 optimizer = Adagrad(lr=learning_rate, epsilon=1e-08, decay=0.0) #'rmsprop' 'adam' 'adagrad'
 activation_type = 'sigmoid' #Try 'selu' or 'elu' or 'softplus' or 'sigmoid'
 use_sparse_representation = False #Works, but requires a change in keras backend (at least if using Keras (2.0.4) )
+use_experimental_sparse_masking_layer = False
 
-load_weights_from = "stackedDenoising_NOfinetuning_[0.5, 0.5]trainSparsity_32bs_2lay_512hu_0.005lr_Noneregul_None_sigmoid_ml1m_04_19PM_October_28_2017_bestValidScore" #"0p5trainSparsity_256bs_3lay_512hu_1.0regul_netflix_10_11AM_October_03_2017_bestValidScore" # Model to load weights from for transfer learning experiments
-perform_finetuning = True #Set to False if you want to fix the weights
+load_weights_from = None#"stackedDenoising_NOfinetuning_[0.5, 0.5]trainSparsity_128bs_2lay_512hu_0.005lr_Noneregul_None_sigmoid_itemUserReverse_movielens20m_11_12AM_October_28_2017_bestValidScore" #"0p5trainSparsity_256bs_3lay_512hu_1.0regul_netflix_10_11AM_October_03_2017_bestValidScore" # Model to load weights from for transfer learning experiments
+perform_finetuning = False #Set to False if you want to fix the weights
 #start_core_training_epoch = 1000
 #layers_to_replace = [True, True, False] #Which layers to load weights for and freeze
 #perform_finetuning = False
@@ -144,7 +145,9 @@ if auxilliary_mask_type=='both':
 	use_both_masks=True
 else:
 	use_both_masks=False
-omni_m = omni_model(numlayers, num_hidden_units, num_items, batch_size, dense_activation = activation_type, use_causal_info = use_causal_info, use_timestamps = useTimestamps, use_both_masks = use_both_masks, l2_weight_regulatization=l2_weight_regulatization, sparse_representation=use_sparse_representation, dropout_probability = dropout_probability)
+omni_m = omni_model(numlayers, num_hidden_units, num_items, batch_size, dense_activation = activation_type, use_causal_info = use_causal_info, 
+	use_timestamps = useTimestamps, use_both_masks = use_both_masks, l2_weight_regulatization=l2_weight_regulatization, sparse_representation=use_sparse_representation, 
+	dropout_probability = dropout_probability, use_sparse_masking_layer = use_experimental_sparse_masking_layer)
 m = omni_m.model
 
 

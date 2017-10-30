@@ -15,12 +15,23 @@ from __future__ import print_function
 from keras.layers import Input, Dense, multiply, Lambda, concatenate, Dropout
 from keras.models import Model
 from keras.regularizers import l1, l2
-
+import numpy.ma as ma
+import tensorflow as tf
+from keras.legacy import interfaces
+from keras.engine import Layer
+from keras.engine import InputSpec
+from keras import activations
+from keras import initializers
+from keras import regularizers
+from keras import constraints
+from keras import backend as K
+import scipy
+import numpy as np
 
 
 #Model
 class omni_model(object):
-	def __init__(self, numlayers, num_hidden_units, input_shape, batch_size, dense_activation = 'tanh', use_causal_info=True, use_timestamps=False, use_both_masks=False, l2_weight_regulatization=None, sparse_representation = False, dropout_probability = None):
+	def __init__(self, numlayers, num_hidden_units, input_shape, batch_size, dense_activation = 'tanh', use_causal_info=True, use_timestamps=False, use_both_masks=False, l2_weight_regulatization=None, sparse_representation = False, dropout_probability = None, use_sparse_masking_layer=False):
 		#The timestamps info should not be masked, becasue the timestamps for the targets are required...
 		self.numlayers = numlayers
 		self.num_hidden_units = num_hidden_units
@@ -32,7 +43,7 @@ class omni_model(object):
 
 
 		#observed_vars = Lambda(lambda x: x*aux_var_value)(observed_vars) #Implements the aux_var_value
-
+	
 		output_mask = Input(shape=(self.input_shape,))
 
 		#input_mask = Input_Omnidrop(observed_vars)
@@ -66,14 +77,18 @@ class omni_model(object):
 				x = Dropout(dropout_probability, noise_shape=[self.batch_size, self.num_hidden_units])(x)
 
 		#output_mask = Lambda(lambda x: (x-1)*-1)(input_mask) #Invert the input mask
-		if l2_weight_regulatization is not None:
-			full_predictions = Dense(self.input_shape, activation='linear', W_regularizer=l2(l2_weight_regulatization))(x)
+		if use_sparse_masking_layer:
+			if l2_weight_regulatization is not None:
+				predictions = Dynamic_Masking_Layer(self.input_shape, activation='linear', W_regularizer=l2(l2_weight_regulatization))([x, output_mask])
+			else:
+				predictions = Dynamic_Masking_Layer(self.input_shape, activation='linear')([x, output_mask])
 		else:
-			full_predictions = Dense(self.input_shape, activation='linear')(x)
+			if l2_weight_regulatization is not None:
+				full_predictions = Dense(self.input_shape, activation='linear', W_regularizer=l2(l2_weight_regulatization))(x)
+			else:
+				full_predictions = Dense(self.input_shape, activation='linear')(x)
 
-		masked_outputs = multiply([output_mask, full_predictions]) #Multiply the output of the last layer of dense with the output mask
-
-		predictions = masked_outputs
+			predictions = multiply([output_mask, full_predictions]) #Multiply the output of the last layer of dense with the output mask
 
 		#Also output the output mask for use in masking the targets.
 		if use_causal_info:
@@ -87,6 +102,7 @@ class omni_model(object):
 			input_list.append(second_mask)
 
 		self.model = Model(inputs=input_list, outputs=[predictions])
+
 
 	def save_weights(self, filename):
 		#weights = self.model.get_weights()
@@ -189,3 +205,135 @@ Could add additional functionality allowing for some outputs not to be predicted
 User embeddings not yet implemented... This could be a problem, but only if the dataset is in the (user, movie, rating) form
 not if it is in the (user, [ratings]) form
 """
+
+class Dynamic_Masking_Layer(Layer):
+	@interfaces.legacy_dense_support
+	def __init__(self, units,
+				 activation=None,
+				 use_bias=True,
+				 kernel_initializer='glorot_uniform',
+				 bias_initializer='zeros',
+				 kernel_regularizer=None,
+				 bias_regularizer=None,
+				 activity_regularizer=None,
+				 kernel_constraint=None,
+				 bias_constraint=None,
+				 **kwargs):
+		if 'input_shape' not in kwargs and 'input_dim' in kwargs:
+			kwargs['input_shape'] = (kwargs.pop('input_dim'),)
+		super(Dynamic_Masking_Layer, self).__init__(**kwargs)
+		self.units = units
+		self.activation = activations.get(activation)
+		self.use_bias = use_bias
+		self.kernel_initializer = initializers.get(kernel_initializer)
+		self.bias_initializer = initializers.get(bias_initializer)
+		self.kernel_regularizer = regularizers.get(kernel_regularizer)
+		self.bias_regularizer = regularizers.get(bias_regularizer)
+		self.activity_regularizer = regularizers.get(activity_regularizer)
+		self.kernel_constraint = constraints.get(kernel_constraint)
+		self.bias_constraint = constraints.get(bias_constraint)
+		self.input_spec = [InputSpec(min_ndim=2), InputSpec(min_ndim=2)]
+		self.supports_masking = True
+
+	def build(self, input_shape):
+		input_shape_mask = input_shape[1]
+		input_shape = input_shape[0]
+
+		assert len(input_shape) >= 2
+		print(input_shape)
+		input_dim = input_shape[-1]
+
+		self.kernel = self.add_weight(shape=(input_dim, self.units),
+									  initializer=self.kernel_initializer,
+									  name='kernel',
+									  regularizer=self.kernel_regularizer,
+									  constraint=self.kernel_constraint)
+		if self.use_bias:
+			self.bias = self.add_weight(shape=(self.units,),
+										initializer=self.bias_initializer,
+										name='bias',
+										regularizer=self.bias_regularizer,
+										constraint=self.bias_constraint)
+		else:
+			self.bias = None
+		self.input_spec = [InputSpec(min_ndim=2, axes={-1: input_dim}), InputSpec(min_ndim=2, axes={-1: input_shape_mask[0]})]
+		self.built = True
+
+	def compute_output_shape(self, input_shape):
+		assert input_shape and len(input_shape) >= 2
+		assert input_shape[-1]
+		output_shape = list(input_shape)
+		output_shape[-1] = self.units
+		return tuple(output_shape)
+
+	def get_config(self):
+		config = {
+			'units': self.units,
+			'activation': activations.serialize(self.activation),
+			'use_bias': self.use_bias,
+			'kernel_initializer': initializers.serialize(self.kernel_initializer),
+			'bias_initializer': initializers.serialize(self.bias_initializer),
+			'kernel_regularizer': regularizers.serialize(self.kernel_regularizer),
+			'bias_regularizer': regularizers.serialize(self.bias_regularizer),
+			'activity_regularizer': regularizers.serialize(self.activity_regularizer),
+			'kernel_constraint': constraints.serialize(self.kernel_constraint),
+			'bias_constraint': constraints.serialize(self.bias_constraint)
+		}
+		base_config = super(Dense, self).get_config()
+		return dict(list(base_config.items()) + list(config.items()))
+
+	def call(self, inputs):
+		ip = inputs[0]
+		mask = inputs[1]
+		sparse_weights = self.get_sparse_weights(mask)
+		#sparse_weights = self.get_sparse_weights_full(mask)
+		output = self.multiply_dense_inputs_with_sparse_weights(ip, sparse_weights)
+		if self.use_bias:
+			output = K.bias_add(output, self.bias)
+		if self.activation is not None:
+			output = self.activation(output)
+		return output
+
+	def mask_weights_by_column(self, col_mask, num_rows):
+		mask = np.vstack([col_mask for i in range(self.input_dim)])
+		return MaskedArray(self.kernel, mask=mask)
+
+	def get_sparse_weights_by_dimension(self, mask, dim = 0):
+		dims_to_keep = list(set(list(np.nonzero(mask)[dim])))
+		sparse_weights_data = []
+		sparse_weights_xs = []
+		sparse_weights_ys = []
+		if dim==1: #Use columns
+			weights = self.kernel.transpose()
+		else: #Use rows
+			weights = self.kernel
+		for i in dims_to_keep: 
+			num_cols = weights.shape[1]
+			sparse_weights_data.extend(weights[i,:])
+			sparse_weights_xs.extend([i]*num_cols)
+			sparse_weights_ys.extend([x for x in range(num_cols)])
+		return scipy.sparse.coo_matrix((sparse_weights_data, (sparse_weights_xs, sparse_weights_ys)), shape=weights.shape)
+
+	def get_sparse_weights(self, mask):
+		#(x,y) = np.nonzero(mask)
+		zero = tf.constant(0.0, dtype=tf.float32)
+		locs = tf.not_equal(mask, zero)
+		indices = tf.where(locs)
+		#indices = zip(x,y)
+		#sparse_weights_data = []
+		#for i in indices: 
+		#	sparse_weights_data.extend(self.kernel[i])
+		sparse_weights_data = tf.gather_nd(self.kernel, indices)
+		return tf.SparseTensor(indices=indices, values=sparse_weights_data, dense_shape=self.kernel.shape)
+		#return scipy.sparse.coo_matrix((sparse_weights_data, (sparse_weights_xs, sparse_weights_ys)), shape=weights.shape)
+
+	def get_sparse_weights_full(self, mask):
+		mask = multiply([self.kernel, mask])
+		return scipy.sparse.coo_matrix(mask)
+
+	def multiply_dense_inputs_with_sparse_weights(self, inputs, weights):
+		arg1 = tf.sparse_transpose(weights)
+		arg2 = tf.transpose(inputs)
+		result = tf.sparse_tensor_dense_matmul(arg1, arg2)
+		out = tf.transpose(result)
+		return out
