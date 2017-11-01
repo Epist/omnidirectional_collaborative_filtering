@@ -146,10 +146,6 @@ class data_reader(object):
 							mask_batch_targets[batch_element, item_id] = aux_var_value
 							ratings_batch_targets[batch_element, item_id] = rating
 					elif random_dropout_split[j] == 0:
-						#mask_batch_targets[0].append([batch_element, item_id])
-						#mask_batch_targets[1].append(aux_var_value)
-						#ratings_batch_targets[0].append([batch_element, item_id])
-						#ratings_batch_targets[1].append(rating)
 						mask_batch_targets[batch_element, item_id] = aux_var_value
 						ratings_batch_targets[batch_element, item_id] = rating
 					else:
@@ -226,8 +222,6 @@ class data_reader(object):
 		mask_batch_target = np.zeros([batch_size, self.num_items])
 
 		batch_element=0 #For indexing the rows within a batch (since the index i is global)
-		#found = 0
-		#total = 0
 		target_count = 0
 		for i in range(start_index, end_index):
 			user_id_raw = user_order[i]
@@ -285,7 +279,6 @@ class data_reader(object):
 						timestamps_batch[batch_element, item_id] = timestamp
 
 			batch_element+=1
-		#print("Batch input density is ", found/total)
 
 		if sparse_representation:
 			input_masks = scipy.sparse.coo_matrix(mask_batch_input, (batch_size, self.num_items))
@@ -308,7 +301,6 @@ class data_reader(object):
 		self.val_split = val_split
 		if seed is not None:
 			np.random.seed(seed)
-		#random_user_order = np.random.permutation(self.num_users) +1 #Add one to shift index from 0 start to 1 start
 		random_user_order = np.random.permutation(self.num_users)
 
 		self.train_set_size = int(self.num_users*val_split[0])
@@ -345,25 +337,6 @@ class data_reader(object):
 					(input_masks, output_masks, inputs, targets, missing_data_mask, timestamps_batch) = self.build_sparse_batch(user_order, batch_size, start_index, end_index, data_sparsity, aux_var_value, sparse_representation=sparse_representation, pass_through_input_training = pass_through_input_training)
 				else:
 					(input_masks, output_masks, inputs, targets, missing_data_mask) = self.build_sparse_batch(user_order, batch_size, start_index, end_index, data_sparsity, aux_var_value, sparse_representation=sparse_representation, pass_through_input_training = pass_through_input_training)
-
-				#Allow for a range of different sparsities for different training examples
-				#batch_data_sparsities = np.random.uniform(low=data_sparsity[0], high=data_sparsity[1], size = batch_size)
-				#if sparse_representation:
-				#	random_dropout_array = []
-				#	for j in range(batch_size):
-				#		pass
-				#else:
-					#random_dropout_array = np.zeros_like(ratings)
-					#for j in range(batch_size):
-					#	random_dropout_array[j,:] = np.random.choice([0,1], size=ratings.shape[1], p=[1-batch_data_sparsities[j], batch_data_sparsities[j]])
-
-					#input_masks_raw = random_dropout_array*missing_data_mask
-					#output_masks_raw = ((random_dropout_array-1)*-1)*missing_data_mask
-					#input_masks = input_masks_raw * aux_var_value
-					#output_masks = output_masks_raw * aux_var_value
-
-					#inputs = ratings*input_masks_raw
-					#targets = ratings*output_masks_raw
 
 				if auxilliary_mask_type == "causal": #Use an auxilliary mask input that masks only the variables not present in the dataset
 					mask_to_feed = missing_data_mask
@@ -443,5 +416,4 @@ class data_reader(object):
 					yield(input_list, targets)
 
 		while True: #Makes it an infinite generator so it doesn't error in parallel... (There are other ways to handle this, but the proper way would be to edit Keras... so this will suffice)
-			#print("Generator end")
 			yield None

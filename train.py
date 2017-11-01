@@ -1,13 +1,9 @@
 #Training script for omnidirectional collaborative filtering models
-
-
 from __future__ import division
 from __future__ import print_function
 from data_reader import data_reader
 import keras
 from model import omni_model
-#from conv_model import omni_model as conv_omni_model
-#from ops import accurate_MAE, nMAE
 import pandas as pd
 import numpy as np
 from keras import metrics
@@ -18,6 +14,7 @@ import tensorflow as tf
 from keras.backend.tensorflow_backend import set_session
 import h5py
 import copy
+import json
 
 #Parameters:
 
@@ -65,60 +62,14 @@ perform_finetuning = False #Set to False if you want to fix the weights
 model_save_name = "stackedDenoising_WITHfinetuning_" + str(train_sparsity) +"trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(learning_rate) + "lr_" + str(l2_weight_regulatization) + "regul_" + str(auxilliary_mask_type) + "_" + str(activation_type)#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 
 #Set dataset params
-if dataset == "movielens20m":
-	data_path = "./data/movielens/"#'/data1/movielens/ml-20m'
-	num_items = 26744 #27000
-	num_users = 138493 #138000
-	rating_range = 4.5 #20 for jester, 4.5 for movielens (min rating is 0.5)
-	nonsequentialusers = True #False
-if dataset == "amazon_books":
-	data_path = "./data/amazon_books/"
-	num_items = 2330066 #9.659 ratings per item
-	num_users = 8026324 #2.804 ratings per user
-	rating_range = 4.0
-	nonsequentialusers = True
-if dataset == "amazon_moviesAndTv":
-	data_path = "./data/amazon_moviesAndTv/"
-	num_items = 200941 #22.927 ratings per item
-	num_users = 2088620 #2.206 ratings per user
-	rating_range = 4.0
-	nonsequentialusers = True
-if dataset == "amazon_videoGames": #1324753 ratings
-	data_path = "./data/amazon_videoGames/"
-	num_items = 50210 #26.384 ratings per item
-	num_users = 826767 #1.602 ratings per user
-	rating_range = 4.0
-	nonsequentialusers = True
-if dataset == "amazon_clothing": #Clothing, shoes, and jewlery
-	data_path = "./data/amazon_clothing/"
-	num_items = 1136004 
-	num_users = 3117268 
-	rating_range = 4.0
-	nonsequentialusers = True
-if dataset == "beeradvocate":
-	data_path = "./data/beeradvocate/" #"/data1/beer/beeradvocate-crawler/ba_ratings.csv"
-	num_items = 35611
-	num_users = 84196
-	rating_range = 4.0 #From 1.0 to 5.0
-	nonsequentialusers = True
-if dataset == "yelp":
-	data_path = "./data/yelp/" 
-	num_items = 156638
-	num_users = 1183362
-	rating_range = 4.0 #From 1.0 to 5.0
-	nonsequentialusers = True
-if dataset == "netflix":
-	data_path = "./data/netflix/" 
-	num_items = 17768
-	num_users = 477412
-	rating_range = 4.0 #From 1.0 to 5.0
-	nonsequentialusers = True
-if dataset == "ml1m":
-	data_path = "./data/ml1m/" 
-	num_items = 3706
-	num_users = 6040
-	rating_range = 4.0 #From 1.0 to 5.0
-	nonsequentialusers = True
+with open("./datasets_metadata.json", "r") as f:
+	metadata = json.load(f)
+dataset_dict = metadata[dataset]
+data_path = dataset_dict["data_path"]
+num_items = dataset_dict["num_items"]
+num_users = dataset_dict["num_users"]
+rating_range = dataset_dict["rating_range"]
+nonsequentialusers = dataset_dict["nonsequentialusers"]
 
 if reverse_user_item_data:
 	#data_path = data_path+"reverse_item-user/"
@@ -152,39 +103,22 @@ m = omni_m.model
 
 
 def accurate_MAE(y_true, y_pred):
-	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
 	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
 	MAE = metrics.mae(y_true, y_pred)
 	return (MAE*num_items*batch_size)/num_predictions #Normalize to count only the ratings that are present.
 	#return (MAE/num_predictions)*num_items*batch_size #Normalize to count only the ratings that are present.
 
 def accurate_RMSE(y_true, y_pred):
-	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
 	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
 	MSE = metrics.mse(y_true, y_pred)
-	return tf.sqrt((MSE*num_items*batch_size)/num_predictions) #Normalize to count only the ratings that are present. Then take the square root for RMSE.
-
-def accurate_RMSE_test(y_true, y_pred):
-	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
-	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
-	scale = tf.cast(tf.size(y_true, out_type=tf.int32), tf.float32)
-	MSE = metrics.mse(y_true, y_pred)
-	return tf.sqrt((MSE*scale)/num_predictions) #Normalize to count only the ratings that are present. Then take the square root for RMSE.
-
-def accurate_RMSE_tensorflow(y_true, y_pred):
-	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
-	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
-	MSE = tf.metrics.mean_squared_error(y_true, y_pred)
 	return tf.sqrt((MSE*num_items*batch_size)/num_predictions) #Normalize to count only the ratings that are present. Then take the square root for RMSE.
 
 def accurate_MSE(y_true, y_pred):
-	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
 	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
 	MSE = metrics.mse(y_true, y_pred)
 	return (MSE*num_items*batch_size)/num_predictions #Normalize to count only the ratings that are present.
 
 def nMAE(y_true, y_pred):
-	#num_predictions = [0 if y_true[i]==y_pred[i]==0 else 1 for i in range(num_items)]
 	num_predictions = tf.count_nonzero(y_true+y_pred, dtype=tf.float32)#Count ratings that are non-zero in both the prediction and the targets (the predictions are zeroed explicitly for missing ratings.)
 	MAE = metrics.mae(y_true, y_pred)
 	return ((MAE*num_items*batch_size)/num_predictions)/rating_range #Normalize to count only the ratings that are present. Then normalize by the rating range.
@@ -207,19 +141,11 @@ if load_weights_from is not None:
 	#Set the weights of the dense layers of the model to weights from a pretrained model (for domain adaptation experiments)
 	donor_model = keras.models.load_model(model_save_path+load_weights_from, 
 		custom_objects={'accurate_MAE': accurate_MAE, 'accurate_RMSE': accurate_RMSE, 'nMAE': nMAE, 'accurate_MSE': accurate_MSE})
-	#omni_m.replace_dense_layer_weights(donor_model, layers_to_replace)
 	if perform_finetuning:
-		#omni_m.replace_dense_layer_weights(donor_model, "all", make_layers_trainable = True)
-		#m.set_weights(donor_model.get_weights())
 		print("Fine tuning")
 		omni_m.manually_load_all_weights(donor_model)
 	else:
 		omni_m.load_and_fix_for_denoising_autoencoders(donor_model)
-
-#callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto'), 
-#		keras.callbacks.ModelCheckpoint(model_save_path+model_save_name)]
-#callbax = [keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=patience, verbose=0, mode='auto')]
-
 
 min_loss = None
 best_epoch = 0
@@ -230,21 +156,7 @@ for i in range(max_epochs):
 	#Rebuild the generators for each epoch (the train-valid set assignments stay the same)
 	train_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "train", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, sparse_representation = use_sparse_representation, pass_through_input_training = pass_through_input_training)
 	valid_gen = data_reader.data_gen(batch_size, train_sparsity, train_val_test = "valid", shuffle=shuffle_data_every_epoch, auxilliary_mask_type = auxilliary_mask_type, aux_var_value = aux_var_value, sparse_representation = use_sparse_representation)
-	"""
-	if start_core_training_epoch == i and load_weights_from is not None:
-		print("Setting the core weights of the model to trainable")
-		weights = m.get_weights()
-		optimizer_state = m.optimizer.get_weights()
-		omni_m.make_trainable()
-		m.compile(optimizer=optimizer,
-              loss=model_loss,
-              metrics=['mae', accurate_MAE, nMAE, accurate_RMSE, accurate_MSE])
-		m.optimizer.set_weights(optimizer_state)
-		m.set_weights(weights)
-	"""
 
-	#Train model
-	#callbax = [keras.callbacks.ModelCheckpoint(model_save_path+model_save_name+"_epoch_"+str(i+1))] #Could also set save_weights_only=True
 	history = m.fit_generator(train_gen, np.floor(data_reader.train_set_size/batch_size)-1, 
 		validation_data=valid_gen, validation_steps=np.floor(data_reader.val_set_size/batch_size)-1) #callbacks=callbax
 	
@@ -258,32 +170,13 @@ for i in range(max_epochs):
 		min_loss = val_loss
 		best_epoch = i
 		m.save(model_save_path+model_save_name+"_epoch_"+str(i+1)+"_bestValidScore") #Only save if it is the best model (will save a lot of time and disk space...)
-		#best_model_weights = copy.deepcopy(m.get_weights())
-		#best_optimizer_state = copy.deepcopy(m.optimizer.get_weights())
+
 	elif i-best_epoch>patience:
-		"""
-		if perform_finetuning:
-			print("\nPerforming fine tuning from model at epoch ", best_epoch+1, "\n")
-			#m.set_weights(best_model_weights)
-			omni_m.make_trainable()
-			m.compile(optimizer=optimizer,
-              loss=model_loss,
-              metrics=['mae', accurate_MAE, nMAE, accurate_RMSE, accurate_MSE])
-			m.optimizer.set_weights(best_optimizer_state)
-			m.set_weights(best_model_weights)
-			best_epoch = i
-			min_loss = None
-			perform_finetuning = False
-			m.save(model_save_path+model_save_name+"_bestValidScore_beforeFineTuning")
-			
-		else:
-			"""
+
 		print("Stopping early at epoch ", i+1)
 		print("Best epoch was ", best_epoch+1)
 		print("Val history: ", val_history)
-		#m.set_weights(best_model_weights)
-		#m.save(model_save_path+model_save_name+"_bestValidScore") #Only save if it is the best model (will save a lot of time and disk space...)
-		#best_m = m
+
 		break
 	
 
@@ -364,21 +257,3 @@ elif eval_mode == "fixed_split":
 	RMSE = compute_full_RMSE(predictions, targets, ratings_count)
 	print("Manual test RMSE is ", RMSE)
 	print("Load this model at: ", model_save_path+model_save_name+"_bestValidScore")
-
-
-#TODO:
-
-#SHOULD ADD MODEL SAVING
-
-
-#Figure out how to make use of contextual inforamtion such as movie tags, timestamps, etc.
-#Train an additional network to compute inter-movie similarity?
-#Embed the movies based on tags and train a network to predict ratings based on input and output movie embeddings?
-#Something closer to the current implementation?
-
-#Try using gender and age side-information
-
-#Need to implement custom early stopping routine
-
-#Should try various training techniques to allow the model to handle various different sparsities 
-#(such as training with various mixed i/o dropout frequencies or possibly even training with interior dropout)
