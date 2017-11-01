@@ -55,9 +55,6 @@ use_experimental_sparse_masking_layer = False
 
 load_weights_from = None#"stackedDenoising_NOfinetuning_[0.5, 0.5]trainSparsity_128bs_2lay_512hu_0.005lr_Noneregul_None_sigmoid_itemUserReverse_movielens20m_11_12AM_October_28_2017_bestValidScore" #"0p5trainSparsity_256bs_3lay_512hu_1.0regul_netflix_10_11AM_October_03_2017_bestValidScore" # Model to load weights from for transfer learning experiments
 perform_finetuning = False #Set to False if you want to fix the weights
-#start_core_training_epoch = 1000
-#layers_to_replace = [True, True, False] #Which layers to load weights for and freeze
-#perform_finetuning = False
 
 model_save_name = "stackedDenoising_WITHfinetuning_" + str(train_sparsity) +"trainSparsity_"+str(batch_size)+"bs_"+str(numlayers)+"lay_"+str(num_hidden_units)+"hu_" + str(learning_rate) + "lr_" + str(l2_weight_regulatization) + "regul_" + str(auxilliary_mask_type) + "_" + str(activation_type)#"noCausalInfo_0p5trainSparsity_128bs_3lay_256hu"
 

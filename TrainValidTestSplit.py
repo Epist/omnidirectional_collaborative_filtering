@@ -209,20 +209,7 @@ def merge_timestamps(input_dict_timestamps, output_dict_timestamps):
 			timestamps[user] = output_dict_timestamps[user]
 
 	return timestamps
-"""
-def merge_data_sets(train, val):
-    #Merge the dataset dictionaries together so that they can be used as input data for testing
-    merged = train.copy()
-    for key in val:
-    	if key in merged:
-    		merged[key] = merged[key].extend(val[key])
-    	else:
-    		merged[key] = val[key]
 
-    #merged = train.copy()
-    #merged.update(val)
-    return merged
-"""
 def convert_and_save_mml(ratings, filename):
 	#Convert the rating splits to mymedialite format and save them.
 	# userId::itemId::rating (or can also use a standard csv)
